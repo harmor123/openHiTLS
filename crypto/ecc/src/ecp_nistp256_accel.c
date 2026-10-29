@@ -33,7 +33,9 @@
 #error "This nistp256 RISC-V implementation requires 128-bit integer support."
 #endif
 
+#ifndef P256_NO_ASM
 #define P256_USE_ASM 1
+#endif
 #include "curve_init_once.h"
 #include "p256_accel_impl.h"
 

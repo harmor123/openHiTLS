@@ -59,15 +59,16 @@
     MULADD_P (\i + 2) * 8, s7
     MULADD_P (\i + 3) * 8, s8
     addi  t0, sp, (\i + 4) * 8
-.Lred_carry_\@:
+    /* Fixed-length carry propagation: the old loop branched on a carry
+     * derived from secret operands.  t[] has 12 limbs, so row i needs
+     * 8 - i further words. */
+.rept (8 - \i)
     ld    a5, 0(t0)
     add   a5, a5, a4
     sd    a5, 0(t0)
     sltu  a4, a5, a4
-    beqz  a4, .Lred_done_\@
     addi  t0, t0, 8
-    j     .Lred_carry_\@
-.Lred_done_\@:
+.endr
 .endm
 
     .globl p256_mont_mul_p_rv64
