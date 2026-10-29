@@ -596,6 +596,62 @@ static void point_add(jac_point *r, const jac_point *p, const jac_point *q)
     *r = out;
 }
 
+static void point_add_fast(jac_point *r, const jac_point *p, const jac_point *q)
+{
+    fe z1z1, z2z2, u1, u2, s1, s2;
+    fe h, rr, i, j, v, t1, t2;
+    fe x3, y3, z3;
+
+    if (point_is_infinity(p)) {
+        *r = *q;
+        return;
+    }
+    if (point_is_infinity(q)) {
+        *r = *p;
+        return;
+    }
+    fe_sqr(&z1z1, &p->z);
+    fe_sqr(&z2z2, &q->z);
+    fe_mul(&u1, &p->x, &z2z2);
+    fe_mul(&u2, &q->x, &z1z1);
+    fe_mul(&t1, &q->z, &z2z2);
+    fe_mul(&s1, &p->y, &t1);
+    fe_mul(&t1, &p->z, &z1z1);
+    fe_mul(&s2, &q->y, &t1);
+    fe_sub(&h, &u2, &u1);
+    fe_sub(&rr, &s2, &s1);
+    if (fe_is_zero(&h)) {
+        if (fe_is_zero(&rr)) {
+            point_double(r, p);
+        } else {
+            point_set_infinity(r);
+        }
+        return;
+    }
+    fe_double(&t2, &h);
+    fe_sqr(&i, &t2);
+    fe_mul(&j, &h, &i);
+    fe_double(&rr, &rr);
+    fe_mul(&v, &u1, &i);
+    fe_sqr(&x3, &rr);
+    fe_sub(&x3, &x3, &j);
+    fe_double(&t1, &v);
+    fe_sub(&x3, &x3, &t1);
+    fe_sub(&t1, &v, &x3);
+    fe_mul(&t1, &rr, &t1);
+    fe_mul(&t2, &s1, &j);
+    fe_double(&t2, &t2);
+    fe_sub(&y3, &t1, &t2);
+    fe_add(&t1, &p->z, &q->z);
+    fe_sqr(&t1, &t1);
+    fe_sub(&t1, &t1, &z1z1);
+    fe_sub(&t1, &t1, &z2z2);
+    fe_mul(&z3, &t1, &h);
+    r->x = x3;
+    r->y = y3;
+    r->z = z3;
+}
+
 static uint64_t ct_eq_mask(uint64_t a, uint64_t b)
 {
     uint64_t x = a ^ b;
@@ -657,24 +713,117 @@ static void scalar_mul_table(jac_point *r, const jac_point table[16],
     *r = acc;
 }
 
+static int sc_is_zero(const uint64_t k[5])
+{
+    return (k[0] | k[1] | k[2] | k[3] | k[4]) == 0;
+}
+
+static void sc_sub_small(uint64_t k[5], int d)
+{
+    uint64_t v;
+    int i;
+
+    if (d < 0) {
+        v = (uint64_t)(-d);
+        for (i = 0; i < 5; i++) {
+            uint64_t old = k[i];
+            k[i] = old + v;
+            v = (k[i] < old);
+        }
+        return;
+    }
+    v = (uint64_t)d;
+    for (i = 0; i < 5; i++) {
+        uint64_t old = k[i];
+        k[i] = old - v;
+        v = (old < v);
+    }
+}
+
+static void sc_halve(uint64_t k[5])
+{
+    k[0] = (k[0] >> 1) | (k[1] << 63);
+    k[1] = (k[1] >> 1) | (k[2] << 63);
+    k[2] = (k[2] >> 1) | (k[3] << 63);
+    k[3] = (k[3] >> 1) | (k[4] << 63);
+    k[4] >>= 1;
+}
+
+static int sc_wnaf5(int8_t out[258], const uint64_t in[4])
+{
+    uint64_t k[5] = { in[0], in[1], in[2], in[3], 0 };
+    int n = 0;
+    int i;
+
+    while (!sc_is_zero(k)) {
+        int d = 0;
+        if (k[0] & 1u) {
+            d = (int)(k[0] & 31u);
+            if (d > 16) {
+                d -= 32;
+            }
+            sc_sub_small(k, d);
+        }
+        out[n++] = (int8_t)d;
+        sc_halve(k);
+    }
+    for (i = n; i < 258; i++) {
+        out[i] = 0;
+    }
+    return n;
+}
+
+static void point_neg(jac_point *r, const jac_point *p)
+{
+    fe zero;
+
+    memset(&zero, 0, sizeof(zero));
+    r->x = p->x;
+    r->z = p->z;
+    fe_sub(&r->y, &zero, &p->y);
+}
+
 static void scalar_mul_joint(jac_point *r, const jac_point gt[16],
                              const uint64_t u1[4], const jac_point qt[16],
                              const uint64_t u2[4])
 {
     jac_point acc;
-    jac_point t;
+    int8_t n1[258];
+    int8_t n2[258];
+    int len1 = sc_wnaf5(n1, u1);
+    int len2 = sc_wnaf5(n2, u2);
+    int len = len1 > len2 ? len1 : len2;
     int i;
 
+    /* ECDSA verification inputs are public, so use direct table indexing,
+       signed digits and variable-time addition here; signing remains on the
+       constant-time scalar_mul_table path. */
     point_set_infinity(&acc);
-    for (i = 63; i >= 0; i--) {
+    for (i = len - 1; i >= 0; i--) {
+        int d1 = n1[i];
+        int d2 = n2[i];
+
         point_double(&acc, &acc);
-        point_double(&acc, &acc);
-        point_double(&acc, &acc);
-        point_double(&acc, &acc);
-        point_select(&t, gt, scalar_nibble(u1, i));
-        point_add(&acc, &acc, &t);
-        point_select(&t, qt, scalar_nibble(u2, i));
-        point_add(&acc, &acc, &t);
+        if (d1 != 0) {
+            jac_point t;
+            int a = d1 < 0 ? -d1 : d1;
+            if (d1 < 0) {
+                point_neg(&t, &gt[a]);
+            } else {
+                t = gt[a];
+            }
+            point_add_fast(&acc, &acc, &t);
+        }
+        if (d2 != 0) {
+            jac_point t;
+            int a = d2 < 0 ? -d2 : d2;
+            if (d2 < 0) {
+                point_neg(&t, &qt[a]);
+            } else {
+                t = qt[a];
+            }
+            point_add_fast(&acc, &acc, &t);
+        }
     }
     *r = acc;
 }
