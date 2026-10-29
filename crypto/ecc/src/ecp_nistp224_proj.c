@@ -92,6 +92,7 @@ static const uint64_t N_R2[4] = {
 #define CURVE_USE_RISCV_ASM 1
 #endif
 
+#include "curve_init_once.h"
 #include "curve_p224_proj_impl.h"
 
 static int32_t P224PointMulBytes(uint8_t qx[CURVE_BYTES], uint8_t qy[CURVE_BYTES],

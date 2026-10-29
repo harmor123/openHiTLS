@@ -984,14 +984,12 @@ static int g_ready;
 
 static void init_constants(void)
 {
+    CURVE_INIT_ENTER(g_ready);
     fe b;
     fe gx;
     fe gy;
     jac_point g;
 
-    if (g_ready) {
-        return;
-    }
     memcpy(g_one_mont.v, P_R, sizeof(g_one_mont.v));
     memcpy(b.v, B, sizeof(b.v));
     fe_to_mont(&g_b_mont, &b);
@@ -1002,7 +1000,7 @@ static void init_constants(void)
     g.z = g_one_mont;
     build_table(g_table, &g);
     build_naf_table(g_naf, &g);
-    g_ready = 1;
+    CURVE_INIT_LEAVE(g_ready);
 }
 
 static int point_is_on_curve(const fe *x, const fe *y)

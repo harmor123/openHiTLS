@@ -34,6 +34,7 @@
 #endif
 
 #define P256_USE_ASM 1
+#include "curve_init_once.h"
 #include "p256_accel_impl.h"
 
 #define CURVE_BYTES 32
