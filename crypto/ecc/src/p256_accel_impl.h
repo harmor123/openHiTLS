@@ -1,4 +1,11 @@
 /*
+ * Copyright (c) 2026 harmor.
+ *
+ * RISC-V ECC acceleration implementation for openHiTLS.
+ * Licensed under the Mulan PSL v2; see LICENSE in the project root.
+ */
+
+/*
  * P-256 (secp256r1) field, point and ECDSA/ECDH operations.
  *
  * Field and scalar arithmetic use four 64-bit limbs in Montgomery form.

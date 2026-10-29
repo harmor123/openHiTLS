@@ -1,4 +1,11 @@
 /*
+ * Copyright (c) 2026 harmor.
+ *
+ * RISC-V ECC acceleration implementation for openHiTLS.
+ * Licensed under the Mulan PSL v2; see LICENSE in the project root.
+ */
+
+/*
  * P-384 specialized point multiplication for openHiTLS.
  *
  * This is a local integration of the project's fixed 6x64-bit CIOS /

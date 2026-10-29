@@ -40,6 +40,10 @@ if(HITLS_CRYPTO_CURVE_NISTP384 AND HITLS_CRYPTO_NIST_USE_ACCEL)
     list(APPEND _ecc_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_nistp384.c)
 endif()
 
+if(HITLS_ASM_RISCV64)
+    list(APPEND _ecc_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/mont_mul_rv64.S)
+endif()
+
 if(HITLS_CRYPTO_CURVE_NISTP256 AND HITLS_CRYPTO_NIST_USE_ACCEL AND HITLS_ASM_RISCV64)
     list(APPEND _ecc_sources
         ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_nistp256_accel.c

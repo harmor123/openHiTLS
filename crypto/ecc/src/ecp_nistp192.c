@@ -1,4 +1,11 @@
 /*
+ * Copyright (c) 2026 harmor.
+ *
+ * RISC-V ECC acceleration implementation for openHiTLS.
+ * Licensed under the Mulan PSL v2; see LICENSE in the project root.
+ */
+
+/*
  * P-192 specialized point multiplication for openHiTLS.
  *
  * This is a local integration of the project's fixed 3x64-bit CIOS /
@@ -69,6 +76,10 @@ static const uint64_t N_R2[3] = {
 
 #define P_N0 0x0000000000000001ull
 #define N_N0 0x882672070ddbcf2full
+
+#if defined(HITLS_ASM_RISCV64)
+#define CURVE_USE_RISCV_ASM 1
+#endif
 
 #include "curve_p192_impl.h"
 

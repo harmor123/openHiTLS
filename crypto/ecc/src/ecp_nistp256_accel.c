@@ -1,4 +1,11 @@
 /*
+ * Copyright (c) 2026 harmor.
+ *
+ * RISC-V ECC acceleration implementation for openHiTLS.
+ * Licensed under the Mulan PSL v2; see LICENSE in the project root.
+ */
+
+/*
  * RISC-V P-256 acceleration adapter for openHiTLS.
  *
  * The arithmetic and point implementation is the project's P-256 source;

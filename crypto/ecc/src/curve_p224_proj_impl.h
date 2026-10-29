@@ -1,4 +1,11 @@
 /*
+ * Copyright (c) 2026 harmor.
+ *
+ * RISC-V ECC acceleration implementation for openHiTLS.
+ * Licensed under the Mulan PSL v2; see LICENSE in the project root.
+ */
+
+/*
  * Generic prime-curve implementation template for P-384/P-521.
  *
  * The including translation unit defines:
@@ -86,6 +93,16 @@ static int u_equal(const fe *a, const fe *b)
     return x == 0;
 }
 
+#if defined(CURVE_USE_RISCV_ASM)
+extern void hitls_mont_mul_rv64(uint64_t *r, const uint64_t *a,
+    const uint64_t *b, const uint64_t *mod, uint64_t n0, uint64_t limbs);
+#define DEFINE_MONT_MUL(fn, MOD, N0)                                         \
+static void fn(fe *r, const fe *a, const fe *b)                              \
+{                                                                            \
+    hitls_mont_mul_rv64(r->v, a->v, b->v, (const uint64_t *)(MOD),           \
+                        (uint64_t)(N0), CURVE_LIMBS);                        \
+}
+#else
 #define DEFINE_MONT_MUL(fn, MOD, N0)                                         \
 static void fn(fe *r, const fe *a, const fe *b)                              \
 {                                                                            \
@@ -142,6 +159,8 @@ static void fn(fe *r, const fe *a, const fe *b)                              \
         }                                                                    \
     }                                                                        \
 }
+
+#endif
 
 DEFINE_MONT_MUL(mont_mul_p, P, P_N0)
 DEFINE_MONT_MUL(mont_mul_n, N, N_N0)
