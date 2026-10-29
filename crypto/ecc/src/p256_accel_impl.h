@@ -34,6 +34,8 @@ typedef struct {
 #if defined(__riscv) && defined(P256_USE_ASM)
 void p256_mont_mul_p_rv64(uint64_t r[4], const uint64_t a[4],
                           const uint64_t b[4]);
+void p256_mont_mul_n_rv64(uint64_t r[4], const uint64_t a[4],
+                          const uint64_t b[4]);
 #endif
 
 /* P-256 domain parameters, little-endian 64-bit limbs. */
@@ -208,7 +210,14 @@ static void fn(u256 *r, const u256 *a, const u256 *b)                        \
 #if !(defined(__riscv) && defined(P256_USE_ASM))
 DEFINE_MONT_MUL(mont_mul_p, P, P_N0)
 #endif
+#if defined(__riscv) && defined(P256_USE_ASM)
+static void mont_mul_n(sc *r, const sc *a, const sc *b)
+{
+    p256_mont_mul_n_rv64(r->v, a->v, b->v);
+}
+#else
 DEFINE_MONT_MUL(mont_mul_n, N, N_N0)
+#endif
 
 static void fe_add(fe *r, const fe *a, const fe *b)
 {

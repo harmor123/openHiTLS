@@ -51,6 +51,7 @@ if(HITLS_CRYPTO_CURVE_NISTP256 AND HITLS_CRYPTO_NIST_USE_ACCEL AND HITLS_ASM_RIS
     list(APPEND _ecc_sources
         ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_nistp256_accel.c
         ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/p256_mont_mul_rv64.S
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/p256_mont_mul_n_rv64.S
     )
 endif()
 
