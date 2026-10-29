@@ -25,10 +25,16 @@ if(HITLS_CRYPTO_CURVE_NISTP192 AND HITLS_CRYPTO_NIST_USE_ACCEL)
     list(APPEND _ecc_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_nistp192.c)
 endif()
 if(HITLS_CRYPTO_CURVE_NISTP224 AND HITLS_CRYPTO_NIST_USE_ACCEL)
-    list(APPEND _ecc_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_nistp224.c)
+    list(APPEND _ecc_sources
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_nistp224.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_nistp224_proj.c
+    )
 endif()
 if(HITLS_CRYPTO_CURVE_NISTP521 AND HITLS_CRYPTO_NIST_USE_ACCEL)
-    list(APPEND _ecc_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_nistp521.c)
+    list(APPEND _ecc_sources
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_nistp521.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_nistp521_proj.c
+    )
 endif()
 if(HITLS_CRYPTO_CURVE_NISTP384 AND HITLS_CRYPTO_NIST_USE_ACCEL)
     list(APPEND _ecc_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_nistp384.c)

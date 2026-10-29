@@ -20,10 +20,12 @@
 #include "bsl_err_internal.h"
 #include "ecp_nistp192.h"
 #include "ecp_nistp224.h"
+#include "ecp_nistp224_proj.h"
 #include "ecp_nistp256.h"
 #include "ecp_nistp256_accel.h"
 #include "ecp_nistp384.h"
 #include "ecp_nistp521.h"
+#include "ecp_nistp521_proj.h"
 #include "ecp_sm2.h"
 
 
@@ -151,14 +153,14 @@ static const ECC_Method EC_METHOD_NIST_P192 = {
 
 #ifdef HITLS_CRYPTO_CURVE_NISTP224
 static const ECC_Method EC_METHOD_NIST_P224 = {
-    .pointMulAdd = ECP224_PointMulAdd,
-    .pointMul = ECP224_PointMul,
-    .pointMulFast = ECP224_PointMul,
+    .pointMulAdd = ECP224_PROJ_PointMulAdd,
+    .pointMul = ECP224_PROJ_PointMul,
+    .pointMulFast = ECP224_PROJ_PointMul,
     .pointAddAffine = ECP_NistPointAddAffine,
     .pointDouble = ECP_NistPointDouble,
     .pointMultDouble = ECP_NistPointMultDouble,
     .modInv = BN_ModInv,
-    .point2Affine = ECP224_Point2Affine,
+    .point2Affine = ECP224_PROJ_Point2Affine,
     .bnModNistEccMul = BN_ModNistEccMul,
     .bnModNistEccSqr = BN_ModNistEccSqr,
     .modOrdInv = ECP_ModOrderInv,
@@ -168,14 +170,14 @@ static const ECC_Method EC_METHOD_NIST_P224 = {
 
 #ifdef HITLS_CRYPTO_CURVE_NISTP521
 static const ECC_Method EC_METHOD_NIST_P521 = {
-    .pointMulAdd = ECP521_PointMulAdd,
-    .pointMul = ECP521_PointMul,
-    .pointMulFast = ECP521_PointMul,
+    .pointMulAdd = ECP521_PROJ_PointMulAdd,
+    .pointMul = ECP521_PROJ_PointMul,
+    .pointMulFast = ECP521_PROJ_PointMul,
     .pointAddAffine = ECP_NistPointAddAffine,
     .pointDouble = ECP_NistPointDouble,
     .pointMultDouble = ECP_NistPointMultDouble,
     .modInv = BN_ModInv,
-    .point2Affine = ECP521_Point2Affine,
+    .point2Affine = ECP521_PROJ_Point2Affine,
     .bnModNistEccMul = BN_ModNistEccMul,
     .bnModNistEccSqr = BN_ModNistEccSqr,
     .modOrdInv = ECP_ModOrderInv,
