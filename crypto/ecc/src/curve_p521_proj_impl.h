@@ -94,13 +94,18 @@ static int u_equal(const fe *a, const fe *b)
 }
 
 #if defined(CURVE_USE_RISCV_ASM)
+#ifndef CURVE_MONT_MUL_FN
+#define CURVE_MONT_MUL_FN hitls_mont_mul_rv64
+#endif
 extern void hitls_mont_mul_rv64(uint64_t *r, const uint64_t *a,
+    const uint64_t *b, const uint64_t *mod, uint64_t n0, uint64_t limbs);
+extern void hitls_mont_mul_9_dispatch_rv64(uint64_t *r, const uint64_t *a,
     const uint64_t *b, const uint64_t *mod, uint64_t n0, uint64_t limbs);
 #define DEFINE_MONT_MUL(fn, MOD, N0)                                         \
 static void fn(fe *r, const fe *a, const fe *b)                              \
 {                                                                            \
-    hitls_mont_mul_rv64(r->v, a->v, b->v, (const uint64_t *)(MOD),           \
-                        (uint64_t)(N0), CURVE_LIMBS);                        \
+    CURVE_MONT_MUL_FN(r->v, a->v, b->v, (const uint64_t *)(MOD),             \
+                      (uint64_t)(N0), CURVE_LIMBS);                          \
 }
 #else
 #define DEFINE_MONT_MUL(fn, MOD, N0)                                         \

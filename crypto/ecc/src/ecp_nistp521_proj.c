@@ -121,6 +121,11 @@ static const uint64_t N_R2[9] = {
 #define P_N0 0x0000000000000001ull
 #define N_N0 0x1d2f5ccd79a995c7ull
 
+#if defined(HITLS_ASM_RISCV64)
+#define CURVE_USE_RISCV_ASM 1
+#define CURVE_MONT_MUL_FN hitls_mont_mul_9_dispatch_rv64
+#endif
+
 #include "curve_p521_proj_impl.h"
 
 static int32_t P521PointMulBytes(uint8_t qx[CURVE_BYTES], uint8_t qy[CURVE_BYTES],
