@@ -43,6 +43,9 @@ endif()
 if(HITLS_ASM_RISCV64)
     list(APPEND _ecc_sources
         ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/mont_mul_rv64.S
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/mont_mul_3_rv64.S
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/mont_mul_4_rv64.S
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/mont_mul_6_rv64.S
         ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/p521_mont_mul_special_rv64.S
     )
 endif()
