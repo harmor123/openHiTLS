@@ -99,6 +99,10 @@ static const uint64_t N_R2[6] = {
 #define P_N0 0x0000000100000001ull
 #define N_N0 0x6ed46089e88fdc45ull
 
+#if defined(HITLS_ASM_RISCV64)
+#define CURVE_USE_RISCV_ASM 1
+#endif
+
 #include "curve_p384_impl.h"
 
 static int32_t P384PointMulBytes(uint8_t qx[CURVE_BYTES], uint8_t qy[CURVE_BYTES],
