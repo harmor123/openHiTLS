@@ -12,6 +12,14 @@
 # See the Mulan PSL v2 for more details.
 
 
+if(HITLS_CRYPTO_AES_CT)
+    set(_aes_sources
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/aes_ct.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/crypt_aes_ct.c
+    )
+    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/src/aes_ct.c
+        PROPERTIES COMPILE_OPTIONS "-Wno-unused-function;-Wno-maybe-uninitialized")
+else()
 set(_aes_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/crypt_aes_setkey.c)
 
 if(HITLS_CRYPTO_AES_X8664)
@@ -56,6 +64,7 @@ else()
     else()
         list(APPEND _aes_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/crypt_aes_sbox.c)
     endif()
+endif()
 endif()
 
 add_library(_hitls_crypto_aes OBJECT ${_aes_sources})

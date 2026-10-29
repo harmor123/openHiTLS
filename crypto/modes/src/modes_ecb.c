@@ -23,7 +23,7 @@
 #include "crypt_errno.h"
 #include "crypt_modes_ecb.h"
 #include "modes_local.h"
-#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64) && !defined(HITLS_CRYPTO_AES_CT)
 #include "crypt_aes.h"
 #endif
 
@@ -40,7 +40,7 @@ static int32_t MODES_ECB_Crypt(MODES_CipherCommonCtx *ctx, const uint8_t *in, ui
     uint8_t *output = out;
     uint32_t blockSize = ctx->blockSize;
 
-#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64) && !defined(HITLS_CRYPTO_AES_CT)
     if (ctx->ciphMeth->algId == CRYPT_SYM_AES128 || ctx->ciphMeth->algId == CRYPT_SYM_AES192 ||
         ctx->ciphMeth->algId == CRYPT_SYM_AES256) {
         if ((len % blockSize) != 0) {

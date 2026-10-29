@@ -202,6 +202,7 @@
 #cmakedefine HITLS_CRYPTO_CIPHER
 #cmakedefine HITLS_CRYPTO_AES
 #cmakedefine HITLS_CRYPTO_AES_PRECALC_TABLES
+#cmakedefine HITLS_CRYPTO_AES_CT
 #cmakedefine HITLS_CRYPTO_SM4
 #cmakedefine HITLS_CRYPTO_CHACHA20
 #cmakedefine HITLS_CRYPTO_DES

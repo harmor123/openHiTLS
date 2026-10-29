@@ -22,6 +22,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/*
+ * The constant-time implementation keeps a much larger expanded-key state
+ * than the table-based one.  Keep both members in the public structure so a
+ * CT library and a caller compiled without HITLS_CRYPTO_AES_CT still agree on
+ * the object layout.
+ */
+#include "aes_ct.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -39,7 +47,10 @@ extern "C" {
  * aes key structure
  */
 typedef struct {
-    uint32_t key[CRYPT_AES_MAX_KEYLEN];
+    union {
+        uint32_t key[CRYPT_AES_MAX_KEYLEN];
+        aes_key ct;
+    };
     uint32_t rounds;
 } CRYPT_AES_Key;
 

@@ -22,7 +22,7 @@
 #include "crypt_errno.h"
 #include "crypt_modes_cbc.h"
 #include "modes_local.h"
-#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64) && !defined(HITLS_CRYPTO_AES_CT)
 #include "crypt_aes.h"
 #endif
 
@@ -154,7 +154,7 @@ int32_t MODES_CBC_Encrypt(MODES_CipherCommonCtx *ctx, const uint8_t *in, uint8_t
         return CRYPT_MODE_ERR_INPUT_LEN;
     }
 
-#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64) && !defined(HITLS_CRYPTO_AES_CT)
     if (ctx->ciphMeth->algId == CRYPT_SYM_AES128 || ctx->ciphMeth->algId == CRYPT_SYM_AES192 ||
         ctx->ciphMeth->algId == CRYPT_SYM_AES256) {
         return CRYPT_AES_EncryptCbcTbox((const CRYPT_AES_Key *)ctx->ciphCtx, ctx->iv, in, out, len);
@@ -207,7 +207,7 @@ int32_t MODES_CBC_Decrypt(MODES_CipherCommonCtx *ctx, const uint8_t *in, uint8_t
     // The ctx, in, and out pointers have been determined at the EAL layer and are not determined again.
     RETURN_RET_IF((left % blockSize) != 0, CRYPT_MODE_ERR_INPUT_LEN);
 
-#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64) && !defined(HITLS_CRYPTO_AES_CT)
     if (ctx->ciphMeth->algId == CRYPT_SYM_AES128 || ctx->ciphMeth->algId == CRYPT_SYM_AES192 ||
         ctx->ciphMeth->algId == CRYPT_SYM_AES256) {
         return CRYPT_AES_DecryptCbcTbox((const CRYPT_AES_Key *)ctx->ciphCtx, ctx->iv, in, out, len);

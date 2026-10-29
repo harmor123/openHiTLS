@@ -23,7 +23,7 @@
 #include "modes_local.h"
 #include "crypt_modes_ofb.h"
 
-#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64) && !defined(HITLS_CRYPTO_AES_CT)
 #include "crypt_aes.h"
 #endif
 
@@ -58,7 +58,7 @@ int32_t MODES_OFB_Crypt(MODES_CipherCommonCtx *ctx, const uint8_t *in, uint8_t *
         ctx->offset = (ctx->offset + 1) % blockSize;
     }
 
-#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64) && !defined(HITLS_CRYPTO_AES_CT)
     if (left >= blockSize && ctx->ciphMeth->algId >= CRYPT_SYM_AES128 &&
         ctx->ciphMeth->algId <= CRYPT_SYM_AES256) {
         uint32_t bulk = left - (left % blockSize);

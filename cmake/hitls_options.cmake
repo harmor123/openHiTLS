@@ -362,6 +362,7 @@ option(HITLS_CRYPTO_BN_ASM                                     "BigNum ASM" OFF)
 option(HITLS_CRYPTO_BN_ARMV8                                   "BigNum ARMv8" OFF)
 option(HITLS_CRYPTO_BN_X8664                                   "BigNum x86_64" OFF)
 ## Cipher
+option(HITLS_CRYPTO_AES_CT                                     "AES constant-time C path" OFF)
 option(HITLS_CRYPTO_AES_ASM                                    "AES ASM" OFF)
 option(HITLS_CRYPTO_AES_ARMV8                                  "AES ARMv8" OFF)
 option(HITLS_CRYPTO_AES_X8664                                  "AES x86_64" OFF)
