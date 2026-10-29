@@ -23,6 +23,10 @@
 #include "modes_local.h"
 #include "crypt_modes_ofb.h"
 
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+#include "crypt_aes.h"
+#endif
+
 #ifdef HITLS_CRYPTO_TDES
 static int32_t MODE_TOFB_I_Crypt(MODES_CipherCommonCtx *ctx, const uint8_t *in, uint8_t *out, uint32_t len);
 #endif
@@ -54,6 +58,14 @@ int32_t MODES_OFB_Crypt(MODES_CipherCommonCtx *ctx, const uint8_t *in, uint8_t *
         ctx->offset = (ctx->offset + 1) % blockSize;
     }
 
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+    if (left >= blockSize && ctx->ciphMeth->algId >= CRYPT_SYM_AES128 &&
+        ctx->ciphMeth->algId <= CRYPT_SYM_AES256) {
+        uint32_t bulk = left - (left % blockSize);
+        CRYPT_AES_OfbTbox((const CRYPT_AES_Key *)ctx->ciphCtx, ctx->iv, input, output, bulk);
+        UPDATE_VALUES(left, input, output, bulk);
+    }
+#endif
     while (left > 0) {
         // Encrypt the IV.
         ret = ctx->ciphMeth->encryptBlock(ctx->ciphCtx, ctx->iv, ctx->iv, blockSize);

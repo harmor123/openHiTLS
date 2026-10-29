@@ -20,6 +20,7 @@
 #ifdef HITLS_CRYPTO_AES
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -130,6 +131,15 @@ int32_t CRYPT_AES_EncryptCbcTbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const
 
 int32_t CRYPT_AES_DecryptCbcTbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const uint8_t *in,
     uint8_t *out, uint32_t len);
+
+void CRYPT_AES_Cfb128Tbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const uint8_t *in,
+    uint8_t *out, uint32_t len, bool enc);
+
+void CRYPT_AES_OfbTbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const uint8_t *in,
+    uint8_t *out, uint32_t len);
+
+void CRYPT_AES_Cfb8Tbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const uint8_t *in,
+    uint8_t *out, uint32_t len, bool enc);
 #endif
 
 #ifdef HITLS_CRYPTO_CBC

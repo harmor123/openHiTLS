@@ -980,6 +980,73 @@ int32_t CRYPT_AES_DecryptCbcTbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const
     }
     return CRYPT_SUCCESS;
 }
+
+void CRYPT_AES_Cfb128Tbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const uint8_t *in,
+    uint8_t *out, uint32_t len, bool enc)
+{
+    uint8_t tmp[16];
+
+    while (len >= 16) {
+        uint8_t cin[16];
+        int i;
+
+        if (!enc) {
+            memcpy(cin, in, sizeof(cin));
+        }
+        AesEncryptOneBlockTbox(ctx, iv, tmp);
+        for (i = 0; i < 16; i++) {
+            out[i] = in[i] ^ tmp[i];
+        }
+        memcpy(iv, enc ? out : cin, sizeof(tmp));
+        in += 16;
+        out += 16;
+        len -= 16;
+    }
+}
+
+void CRYPT_AES_OfbTbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const uint8_t *in,
+    uint8_t *out, uint32_t len)
+{
+    uint8_t tmp[16];
+
+    while (len >= 16) {
+        AesEncryptOneBlockTbox(ctx, iv, tmp);
+        memcpy(iv, tmp, sizeof(tmp));
+        for (int i = 0; i < 16; i++) {
+            out[i] = in[i] ^ tmp[i];
+        }
+        in += 16;
+        out += 16;
+        len -= 16;
+    }
+}
+
+void CRYPT_AES_Cfb8Tbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const uint8_t *in,
+    uint8_t *out, uint32_t len, bool enc)
+{
+    uint8_t tmp[16];
+
+    while (len > 0) {
+        uint64_t lo;
+        uint64_t hi;
+        uint8_t feedback;
+        uint8_t cipherByte;
+
+        AesEncryptOneBlockTbox(ctx, iv, tmp);
+        cipherByte = in[0] ^ tmp[0];
+        feedback = enc ? cipherByte : in[0];
+        memcpy(&lo, iv, sizeof(lo));
+        memcpy(&hi, iv + 8, sizeof(hi));
+        lo = (lo >> 8) | (hi << 56);
+        hi = (hi >> 8) | ((uint64_t)feedback << 56);
+        memcpy(iv, &lo, sizeof(lo));
+        memcpy(iv + 8, &hi, sizeof(hi));
+        out[0] = cipherByte;
+        in++;
+        out++;
+        len--;
+    }
+}
 #endif
 
 #endif /* HITLS_CRYPTO_AES && HITLS_CRYPTO_AES_PRECALC_TABLES */

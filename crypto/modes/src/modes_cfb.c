@@ -29,6 +29,16 @@
 #include "crypt_local_types.h"
 #include "crypt_modes.h"
 
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+#include "crypt_aes.h"
+
+static bool IsAesCfb(const MODES_CipherCFBCtx *ctx)
+{
+    CRYPT_SYM_AlgId id = ctx->modeCtx.ciphMeth->algId;
+    return id >= CRYPT_SYM_AES128 && id <= CRYPT_SYM_AES256;
+}
+#endif
+
 #define CFB_MAX_FEEDBACK_BITS 128U
 
 #ifdef HITLS_CRYPTO_TDES
@@ -55,6 +65,13 @@ static int32_t MODES_CFB_BytesEncrypt(MODES_CipherCFBCtx *ctx, const uint8_t *in
         ctx->modeCtx.offset = (ctx->modeCtx.offset + 1) % blockSize;
     }
 
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+    if (left > 0 && ctx->feedbackBits == 8 && IsAesCfb(ctx)) {
+        CRYPT_AES_Cfb8Tbox((const CRYPT_AES_Key *)ctx->modeCtx.ciphCtx, ctx->modeCtx.iv,
+            input, output, left, true);
+        return CRYPT_SUCCESS;
+    }
+#endif
     while (left > 0) {
         // Encrypt the IV.
         int32_t ret = ctx->modeCtx.ciphMeth->encryptBlock(ctx->modeCtx.ciphCtx, ctx->modeCtx.iv, tmp, blockSize);
@@ -113,6 +130,14 @@ static int32_t MODES_CFB128_BytesEncrypt(MODES_CipherCFBCtx *ctx, const uint8_t 
         left--;
         ctx->modeCtx.offset = (ctx->modeCtx.offset + 1) % blockSize;
     }
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+    if (left >= blockSize && IsAesCfb(ctx)) {
+        uint32_t bulk = left - (left % blockSize);
+        CRYPT_AES_Cfb128Tbox((const CRYPT_AES_Key *)ctx->modeCtx.ciphCtx, iv, inp, outp,
+            bulk, true);
+        UPDATE_VALUES(left, inp, outp, bulk);
+    }
+#endif
     while (left >= blockSize) {
         ret = ctx->modeCtx.ciphMeth->encryptBlock(ctx->modeCtx.ciphCtx, iv, iv, blockSize);
         if (ret != CRYPT_SUCCESS) {
@@ -170,6 +195,13 @@ static int32_t MODES_CFB_BytesDecrypt(MODES_CipherCFBCtx *ctx, const uint8_t *in
         ctx->modeCtx.offset = (ctx->modeCtx.offset + 1) % blockSize;
     }
 
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+    if (left > 0 && ctx->feedbackBits == 8 && IsAesCfb(ctx)) {
+        CRYPT_AES_Cfb8Tbox((const CRYPT_AES_Key *)ctx->modeCtx.ciphCtx, ctx->modeCtx.iv,
+            input, output, left, false);
+        return CRYPT_SUCCESS;
+    }
+#endif
     while (left > 0) {
         // Encrypt the IV.
         int32_t ret = ctx->modeCtx.ciphMeth->encryptBlock(ctx->modeCtx.ciphCtx, ctx->modeCtx.iv, tmp, blockSize);
@@ -229,6 +261,14 @@ static int32_t MODES_CFB128_BytesDecrypt(MODES_CipherCFBCtx *ctx, const uint8_t 
         left--;
         ctx->modeCtx.offset = (ctx->modeCtx.offset + 1) % blockSize;
     }
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+    if (left >= blockSize && IsAesCfb(ctx)) {
+        uint32_t bulk = left - (left % blockSize);
+        CRYPT_AES_Cfb128Tbox((const CRYPT_AES_Key *)ctx->modeCtx.ciphCtx, iv, inp, outp,
+            bulk, false);
+        UPDATE_VALUES(left, inp, outp, bulk);
+    }
+#endif
     while (left >= blockSize) {
         ret = ctx->modeCtx.ciphMeth->encryptBlock(ctx->modeCtx.ciphCtx, iv, iv, blockSize);
         if (ret != CRYPT_SUCCESS) {
