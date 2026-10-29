@@ -21,6 +21,7 @@
 #include "ecp_nistp192.h"
 #include "ecp_nistp224.h"
 #include "ecp_nistp256.h"
+#include "ecp_nistp256_accel.h"
 #include "ecp_nistp521.h"
 #include "ecp_sm2.h"
 
@@ -183,7 +184,8 @@ static const ECC_Method EC_METHOD_NIST_P521 = {
 #endif // HITLS_CRYPTO_NIST_USE_ACCEL
 
 #ifdef HITLS_CRYPTO_CURVE_NISTP256
-#if ((defined(HITLS_CRYPTO_CURVE_NISTP256_ASM) && defined(HITLS_CRYPTO_NIST_ECC_ACCELERATE)) || \
+#if !(defined(HITLS_CRYPTO_NIST_USE_ACCEL) && defined(HITLS_ASM_RISCV64)) && \
+    ((defined(HITLS_CRYPTO_CURVE_NISTP256_ASM) && defined(HITLS_CRYPTO_NIST_ECC_ACCELERATE)) || \
     (!defined(HITLS_CRYPTO_CURVE_NISTP256_ASM) && defined(HITLS_CRYPTO_NIST_USE_ACCEL)))
 static const ECC_Method EC_METHOD_NIST_P256 = {
     .pointMulAdd = ECP256_PointMulAdd,
@@ -200,6 +202,24 @@ static const ECC_Method EC_METHOD_NIST_P256 = {
     .pointAdd = ECP_NistPointAdd,
 };
 #endif
+#endif
+
+#if defined(HITLS_CRYPTO_CURVE_NISTP256) && defined(HITLS_CRYPTO_NIST_USE_ACCEL) && \
+    defined(HITLS_ASM_RISCV64)
+static const ECC_Method EC_METHOD_NIST_P256_ACCEL = {
+    .pointMulAdd = ECP256_ACCEL_PointMulAdd,
+    .pointMul = ECP256_ACCEL_PointMul,
+    .pointMulFast = ECP256_ACCEL_PointMul,
+    .pointAddAffine = ECP_NistPointAddAffine,
+    .pointDouble = ECP_NistPointDouble,
+    .pointMultDouble = ECP_NistPointMultDouble,
+    .modInv = BN_ModInv,
+    .point2Affine = ECP256_ACCEL_Point2Affine,
+    .bnModNistEccMul = BN_ModNistEccMul,
+    .bnModNistEccSqr = BN_ModNistEccSqr,
+    .modOrdInv = ECP256_ModOrderInv,
+    .pointAdd = ECP_NistPointAdd,
+};
 #endif
 
 static const ECC_MethodMap EC_METHODS[] = {
@@ -227,7 +247,9 @@ static const ECC_MethodMap EC_METHODS[] = {
 
 // p256
 #ifdef HITLS_CRYPTO_CURVE_NISTP256
-    #if defined(HITLS_CRYPTO_CURVE_NISTP256_ASM) && defined(HITLS_CRYPTO_NIST_ECC_ACCELERATE)
+    #if defined(HITLS_CRYPTO_NIST_USE_ACCEL) && defined(HITLS_ASM_RISCV64)
+        { CRYPT_ECC_NISTP256, &EC_METHOD_NIST_P256_ACCEL }, // Project RV64 field-mul assembly
+    #elif defined(HITLS_CRYPTO_CURVE_NISTP256_ASM) && defined(HITLS_CRYPTO_NIST_ECC_ACCELERATE)
         { CRYPT_ECC_NISTP256, &EC_METHOD_NIST_P256 }, // The ECC assembly optimization does not depend on uint128.
     #elif (!defined(HITLS_CRYPTO_CURVE_NISTP256_ASM) && defined(HITLS_CRYPTO_NIST_USE_ACCEL))
         { CRYPT_ECC_NISTP256, &EC_METHOD_NIST_P256 }, // Non-assembled ECC optimization based on uint128
