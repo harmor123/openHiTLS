@@ -22,6 +22,17 @@ elseif(HITLS_CRYPTO_CHACHA20_X8664)
     list(APPEND _chacha20_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/chacha20block_x8664_avx2.S)
 elseif(HITLS_CRYPTO_CHACHA20_ARMV8)
     list(APPEND _chacha20_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/chacha20_aarch64.S)
+elseif(HITLS_CRYPTO_CHACHA20_RISCV64)
+    list(APPEND _chacha20_sources
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/chacha20block_rv64.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/chacha20_rvv.S
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/chacha20_rvv9.S
+    )
+    set_source_files_properties(
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/chacha20_rvv.S
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/chacha20_rvv9.S
+        PROPERTIES COMPILE_OPTIONS "-march=rv64gcv_zba_zbb_zbc_zbs"
+    )
 else()
     list(APPEND _chacha20_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/chacha20block.c)
 endif()

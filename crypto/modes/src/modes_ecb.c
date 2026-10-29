@@ -23,6 +23,9 @@
 #include "crypt_errno.h"
 #include "crypt_modes_ecb.h"
 #include "modes_local.h"
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+#include "crypt_aes.h"
+#endif
 
 static int32_t MODES_ECB_Crypt(MODES_CipherCommonCtx *ctx, const uint8_t *in, uint8_t *out, uint32_t len, bool enc)
 {
@@ -36,6 +39,18 @@ static int32_t MODES_ECB_Crypt(MODES_CipherCommonCtx *ctx, const uint8_t *in, ui
     const uint8_t *input = in;
     uint8_t *output = out;
     uint32_t blockSize = ctx->blockSize;
+
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+    if (ctx->ciphMeth->algId == CRYPT_SYM_AES128 || ctx->ciphMeth->algId == CRYPT_SYM_AES192 ||
+        ctx->ciphMeth->algId == CRYPT_SYM_AES256) {
+        if ((len % blockSize) != 0) {
+            BSL_ERR_PUSH_ERROR(CRYPT_MODE_ERR_INPUT_LEN);
+            return CRYPT_MODE_ERR_INPUT_LEN;
+        }
+        return enc ? CRYPT_AES_Encrypt((const CRYPT_AES_Key *)ctx->ciphCtx, in, out, len) :
+            CRYPT_AES_Decrypt((const CRYPT_AES_Key *)ctx->ciphCtx, in, out, len);
+    }
+#endif
 
     while (left >= blockSize) {
         if (enc) {

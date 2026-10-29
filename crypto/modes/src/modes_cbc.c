@@ -22,6 +22,9 @@
 #include "crypt_errno.h"
 #include "crypt_modes_cbc.h"
 #include "modes_local.h"
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+#include "crypt_aes.h"
+#endif
 
 #define CBC_UPDATE_VALUES(l, i, o, len) \
     do { \
@@ -151,6 +154,13 @@ int32_t MODES_CBC_Encrypt(MODES_CipherCommonCtx *ctx, const uint8_t *in, uint8_t
         return CRYPT_MODE_ERR_INPUT_LEN;
     }
 
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+    if (ctx->ciphMeth->algId == CRYPT_SYM_AES128 || ctx->ciphMeth->algId == CRYPT_SYM_AES192 ||
+        ctx->ciphMeth->algId == CRYPT_SYM_AES256) {
+        return CRYPT_AES_EncryptCbcTbox((const CRYPT_AES_Key *)ctx->ciphCtx, ctx->iv, in, out, len);
+    }
+#endif
+
     while (left >= blockSize) {
         /* Plaintext XOR IV. BlockSize must be an integer multiple of 4 bytes. */
         DATA32_XOR(input, iv, tmp, blockSize);
@@ -196,6 +206,13 @@ int32_t MODES_CBC_Decrypt(MODES_CipherCommonCtx *ctx, const uint8_t *in, uint8_t
 
     // The ctx, in, and out pointers have been determined at the EAL layer and are not determined again.
     RETURN_RET_IF((left % blockSize) != 0, CRYPT_MODE_ERR_INPUT_LEN);
+
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64)
+    if (ctx->ciphMeth->algId == CRYPT_SYM_AES128 || ctx->ciphMeth->algId == CRYPT_SYM_AES192 ||
+        ctx->ciphMeth->algId == CRYPT_SYM_AES256) {
+        return CRYPT_AES_DecryptCbcTbox((const CRYPT_AES_Key *)ctx->ciphCtx, ctx->iv, in, out, len);
+    }
+#endif
 
     // In the case where the input and output are at the same address,
     // the judgment should be placed outside the while loop. Otherwise, the performance will be affected.

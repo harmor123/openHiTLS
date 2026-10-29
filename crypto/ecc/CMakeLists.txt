@@ -21,6 +21,9 @@ set(_ecc_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_nist.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_simple.c
 )
+if(HITLS_CRYPTO_CURVE_NISTP192 AND HITLS_CRYPTO_NIST_USE_ACCEL)
+    list(APPEND _ecc_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_nistp192.c)
+endif()
 if(HITLS_CRYPTO_CURVE_NISTP224 AND HITLS_CRYPTO_NIST_USE_ACCEL)
     list(APPEND _ecc_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/ecp_nistp224.c)
 endif()

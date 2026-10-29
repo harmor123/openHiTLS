@@ -16,6 +16,7 @@
 #include "hitls_build.h"
 #if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_PRECALC_TABLES)
 
+#include <string.h>
 #include "bsl_err_internal.h"
 #include "crypt_utils.h"
 #include "crypt_errno.h"
@@ -747,13 +748,17 @@ do { \
                 ^ (ekey)[((i) << 2) + 3]; \
 } while (0)
 
-void CRYPT_AES_EncryptTbox(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8_t *out, uint32_t len)
+static inline __attribute__((always_inline)) void AesEncryptWordsTbox(const CRYPT_AES_Key *ctx,
+    uint32_t c0, uint32_t c1, uint32_t c2, uint32_t c3,
+    uint32_t *o0, uint32_t *o1, uint32_t *o2, uint32_t *o3)
 {
-    (void)len;
     const uint32_t *ekey = ctx->key;
-    uint32_t c0, c1, c2, c3, t0, t1, t2, t3;
+    uint32_t t0, t1, t2, t3;
 
-    AES_ROUND_INIT(in, c, e);
+    c0 ^= ekey[0];
+    c1 ^= ekey[1];
+    c2 ^= ekey[2];
+    c3 ^= ekey[3];
 
     AES_ENC_ROUND(c, t, 1, ekey);
     AES_ENC_ROUND(t, c, 2, ekey);
@@ -785,11 +790,75 @@ void CRYPT_AES_EncryptTbox(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8_t 
     c2 = TESEARCH(t2, t3, t0, t1) ^ ekey[2];  // operation ekey 2
     c3 = TESEARCH(t3, t0, t1, t2) ^ ekey[3];  // operation ekey 3
 
-    PUT_UINT32_BE(c0, out, 0);  // c0 is converted into four bytes which index is 0 in the out.
-    PUT_UINT32_BE(c1, out, 4);  // c1 is converted into four bytes which index is 4 in the out.
-    PUT_UINT32_BE(c2, out, 8);  // c2 is converted into four bytes which index is 8 in the out
-    PUT_UINT32_BE(c3, out, 12); // c3 is converted into four bytes which index is 12 in the out
+    *o0 = c0;
+    *o1 = c1;
+    *o2 = c2;
+    *o3 = c3;
 }
+
+static inline __attribute__((always_inline)) void AesEncryptOneBlockTbox(const CRYPT_AES_Key *ctx,
+    const uint8_t *in, uint8_t *out)
+{
+    uint32_t o0, o1, o2, o3;
+
+    AesEncryptWordsTbox(ctx, GET_UINT32_BE(in, 0), GET_UINT32_BE(in, 4),
+        GET_UINT32_BE(in, 8), GET_UINT32_BE(in, 12), &o0, &o1, &o2, &o3);
+    PUT_UINT32_BE(o0, out, 0);
+    PUT_UINT32_BE(o1, out, 4);
+    PUT_UINT32_BE(o2, out, 8);
+    PUT_UINT32_BE(o3, out, 12);
+}
+
+void CRYPT_AES_EncryptTbox(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8_t *out, uint32_t len)
+{
+    while (len >= 16) {
+        AesEncryptOneBlockTbox(ctx, in, out);
+        in += 16;
+        out += 16;
+        len -= 16;
+    }
+}
+
+#ifdef HITLS_CRYPTO_AES_RISCV64
+int32_t CRYPT_AES_EncryptCbcTbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const uint8_t *in,
+    uint8_t *out, uint32_t len)
+{
+    uint32_t c0 = GET_UINT32_BE(iv, 0);
+    uint32_t c1 = GET_UINT32_BE(iv, 4);
+    uint32_t c2 = GET_UINT32_BE(iv, 8);
+    uint32_t c3 = GET_UINT32_BE(iv, 12);
+    bool processed = false;
+
+    while (len >= 16) {
+        uint32_t o0, o1, o2, o3;
+
+        AesEncryptWordsTbox(ctx,
+            GET_UINT32_BE(in, 0) ^ c0,
+            GET_UINT32_BE(in, 4) ^ c1,
+            GET_UINT32_BE(in, 8) ^ c2,
+            GET_UINT32_BE(in, 12) ^ c3, &o0, &o1, &o2, &o3);
+        PUT_UINT32_BE(o0, out, 0);
+        PUT_UINT32_BE(o1, out, 4);
+        PUT_UINT32_BE(o2, out, 8);
+        PUT_UINT32_BE(o3, out, 12);
+        c0 = o0;
+        c1 = o1;
+        c2 = o2;
+        c3 = o3;
+        processed = true;
+        in += 16;
+        out += 16;
+        len -= 16;
+    }
+    if (processed) {
+        PUT_UINT32_BE(c0, iv, 0);
+        PUT_UINT32_BE(c1, iv, 4);
+        PUT_UINT32_BE(c2, iv, 8);
+        PUT_UINT32_BE(c3, iv, 12);
+    }
+    return CRYPT_SUCCESS;
+}
+#endif
 
 #define AES_DEC_ROUND(in, r, i, dkey) do { \
     r##0 = TD0[(in##0 >> 24)] ^ TD1[(in##3 >> 16) & 0xff] ^ TD2[(in##2 >> 8) & 0xff] ^ TD3[(in##1) & 0xff] \
@@ -802,14 +871,17 @@ void CRYPT_AES_EncryptTbox(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8_t 
             ^ (dkey)[((i) << 2) + 3]; \
 } while (0)
 
-void CRYPT_AES_DecryptTbox(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8_t *out, uint32_t len)
+static inline __attribute__((always_inline)) void AesDecryptWordsTbox(const CRYPT_AES_Key *ctx,
+    uint32_t p0, uint32_t p1, uint32_t p2, uint32_t p3,
+    uint32_t *o0, uint32_t *o1, uint32_t *o2, uint32_t *o3)
 {
-    (void)len;
     const uint32_t *dkey = ctx->key + ctx->rounds * 4;  // 4 bytes
-    uint32_t p0, p1, p2, p3, t0, t1, t2, t3;
+    uint32_t t0, t1, t2, t3;
 
-    // Initialize p0. The dkey starts from the end of the key.
-    AES_ROUND_INIT(in, p, d);
+    p0 ^= dkey[0];
+    p1 ^= dkey[1];
+    p2 ^= dkey[2];
+    p3 ^= dkey[3];
 
     dkey = ctx->key;
 
@@ -840,14 +912,74 @@ void CRYPT_AES_DecryptTbox(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8_t 
     p2 = INVSSEARCH(t2, t3, t0, t1) ^ dkey[2];  // dkey 2
     p3 = INVSSEARCH(t3, t0, t1, t2) ^ dkey[3];  // dkey 3
 
-    PUT_UINT32_BE(p0, out, 0);  // 4 bytes starting from the index 0 of the in
-    PUT_UINT32_BE(p1, out, 4);  // 4 bytes starting from the index 4 of the in
-    PUT_UINT32_BE(p2, out, 8);  // 4 bytes starting from the index 8 of the in
-    PUT_UINT32_BE(p3, out, 12); // 4 bytes starting from the index 12 of the in
-    BSL_SAL_CleanseData(&p0, sizeof(uint32_t));
-    BSL_SAL_CleanseData(&p1, sizeof(uint32_t));
-    BSL_SAL_CleanseData(&p2, sizeof(uint32_t));
-    BSL_SAL_CleanseData(&p3, sizeof(uint32_t));
+    *o0 = p0;
+    *o1 = p1;
+    *o2 = p2;
+    *o3 = p3;
 }
+
+static inline __attribute__((always_inline)) void AesDecryptOneBlockTbox(const CRYPT_AES_Key *ctx,
+    const uint8_t *in, uint8_t *out)
+{
+    uint32_t o0, o1, o2, o3;
+
+    AesDecryptWordsTbox(ctx, GET_UINT32_BE(in, 0), GET_UINT32_BE(in, 4),
+        GET_UINT32_BE(in, 8), GET_UINT32_BE(in, 12), &o0, &o1, &o2, &o3);
+    PUT_UINT32_BE(o0, out, 0);
+    PUT_UINT32_BE(o1, out, 4);
+    PUT_UINT32_BE(o2, out, 8);
+    PUT_UINT32_BE(o3, out, 12);
+}
+
+void CRYPT_AES_DecryptTbox(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8_t *out, uint32_t len)
+{
+    while (len >= 16) {
+        AesDecryptOneBlockTbox(ctx, in, out);
+        in += 16;
+        out += 16;
+        len -= 16;
+    }
+}
+
+#ifdef HITLS_CRYPTO_AES_RISCV64
+int32_t CRYPT_AES_DecryptCbcTbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const uint8_t *in,
+    uint8_t *out, uint32_t len)
+{
+    uint32_t c0 = GET_UINT32_BE(iv, 0);
+    uint32_t c1 = GET_UINT32_BE(iv, 4);
+    uint32_t c2 = GET_UINT32_BE(iv, 8);
+    uint32_t c3 = GET_UINT32_BE(iv, 12);
+    bool processed = false;
+
+    while (len >= 16) {
+        uint32_t x0 = GET_UINT32_BE(in, 0);
+        uint32_t x1 = GET_UINT32_BE(in, 4);
+        uint32_t x2 = GET_UINT32_BE(in, 8);
+        uint32_t x3 = GET_UINT32_BE(in, 12);
+        uint32_t o0, o1, o2, o3;
+
+        AesDecryptWordsTbox(ctx, x0, x1, x2, x3, &o0, &o1, &o2, &o3);
+        PUT_UINT32_BE(o0 ^ c0, out, 0);
+        PUT_UINT32_BE(o1 ^ c1, out, 4);
+        PUT_UINT32_BE(o2 ^ c2, out, 8);
+        PUT_UINT32_BE(o3 ^ c3, out, 12);
+        c0 = x0;
+        c1 = x1;
+        c2 = x2;
+        c3 = x3;
+        processed = true;
+        in += 16;
+        out += 16;
+        len -= 16;
+    }
+    if (processed) {
+        PUT_UINT32_BE(c0, iv, 0);
+        PUT_UINT32_BE(c1, iv, 4);
+        PUT_UINT32_BE(c2, iv, 8);
+        PUT_UINT32_BE(c3, iv, 12);
+    }
+    return CRYPT_SUCCESS;
+}
+#endif
 
 #endif /* HITLS_CRYPTO_AES && HITLS_CRYPTO_AES_PRECALC_TABLES */

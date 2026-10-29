@@ -18,6 +18,7 @@
 
 #include "ecc_local.h"
 #include "bsl_err_internal.h"
+#include "ecp_nistp192.h"
 #include "ecp_nistp224.h"
 #include "ecp_nistp256.h"
 #include "ecp_nistp521.h"
@@ -30,7 +31,7 @@ typedef struct {
 } ECC_MethodMap;
 
 #if defined(HITLS_SIXTY_FOUR_BITS)
-#if defined(HITLS_CRYPTO_CURVE_NISTP192) || \
+#if (defined(HITLS_CRYPTO_CURVE_NISTP192) && !defined(HITLS_CRYPTO_NIST_USE_ACCEL)) || \
     ((defined(HITLS_CRYPTO_CURVE_NISTP224) || defined(HITLS_CRYPTO_CURVE_NISTP521)) && \
         !defined(HITLS_CRYPTO_NIST_USE_ACCEL)) || \
     defined(HITLS_CRYPTO_CURVE_NISTP384) || \
@@ -129,6 +130,23 @@ static const ECC_Method EC_METHOD_PRIME_MONT = {
 #endif
 
 #ifdef HITLS_CRYPTO_NIST_USE_ACCEL
+#ifdef HITLS_CRYPTO_CURVE_NISTP192
+static const ECC_Method EC_METHOD_NIST_P192 = {
+    .pointMulAdd = ECP192_PointMulAdd,
+    .pointMul = ECP192_PointMul,
+    .pointMulFast = ECP192_PointMul,
+    .pointAddAffine = ECP_NistPointAddAffine,
+    .pointDouble = ECP_NistPointDouble,
+    .pointMultDouble = ECP_NistPointMultDouble,
+    .modInv = BN_ModInv,
+    .point2Affine = ECP192_Point2Affine,
+    .bnModNistEccMul = BN_ModNistEccMul,
+    .bnModNistEccSqr = BN_ModNistEccSqr,
+    .modOrdInv = ECP_ModOrderInv,
+    .pointAdd = ECP_NistPointAdd,
+};
+#endif
+
 #ifdef HITLS_CRYPTO_CURVE_NISTP224
 static const ECC_Method EC_METHOD_NIST_P224 = {
     .pointMulAdd = ECP224_PointMulAdd,
@@ -187,7 +205,9 @@ static const ECC_Method EC_METHOD_NIST_P256 = {
 static const ECC_MethodMap EC_METHODS[] = {
 // p192
 #ifdef HITLS_CRYPTO_CURVE_NISTP192
-    #ifdef HITLS_SIXTY_FOUR_BITS
+    #ifdef HITLS_CRYPTO_NIST_USE_ACCEL
+        { CRYPT_ECC_NISTP192, &EC_METHOD_NIST_P192 },
+    #elif defined(HITLS_SIXTY_FOUR_BITS)
         { CRYPT_ECC_NISTP192, &EC_METHOD_NIST }, // Common nist cal + fast modulus reduction of Bn
     #else
         { CRYPT_ECC_NISTP192, &EC_METHOD_NIST_MONT },

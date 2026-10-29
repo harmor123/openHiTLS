@@ -124,6 +124,14 @@ int32_t CRYPT_AES_Encrypt(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8_t *
 */
 int32_t CRYPT_AES_Decrypt(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8_t *out, uint32_t len);
 
+#ifdef HITLS_CRYPTO_AES_RISCV64
+int32_t CRYPT_AES_EncryptCbcTbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const uint8_t *in,
+    uint8_t *out, uint32_t len);
+
+int32_t CRYPT_AES_DecryptCbcTbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const uint8_t *in,
+    uint8_t *out, uint32_t len);
+#endif
+
 #ifdef HITLS_CRYPTO_CBC
 /**
  * @ingroup aes

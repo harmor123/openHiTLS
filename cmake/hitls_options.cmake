@@ -365,6 +365,7 @@ option(HITLS_CRYPTO_BN_X8664                                   "BigNum x86_64" O
 option(HITLS_CRYPTO_AES_ASM                                    "AES ASM" OFF)
 option(HITLS_CRYPTO_AES_ARMV8                                  "AES ARMv8" OFF)
 option(HITLS_CRYPTO_AES_X8664                                  "AES x86_64" OFF)
+option(HITLS_CRYPTO_AES_RISCV64                               "AES RISC-V 64 fast path" OFF)
 option(HITLS_CRYPTO_SM4_ASM                                    "SM4 ASM" OFF)
 option(HITLS_CRYPTO_SM4_ARMV8                                  "SM4 ARMv8" OFF)
 option(HITLS_CRYPTO_SM4_X8664                                  "SM4 x86_64" OFF)
@@ -372,6 +373,7 @@ option(HITLS_CRYPTO_CHACHA20_ASM                               "ChaCha20 ASM" OF
 option(HITLS_CRYPTO_CHACHA20_ARMV8                             "ChaCha20 ARMv8" OFF)
 option(HITLS_CRYPTO_CHACHA20_X8664                             "ChaCha20 x86_64" OFF)
 option(HITLS_CRYPTO_CHACHA20_X8664_AVX512                      "ChaCha20 x86_64 AVX512" OFF)
+option(HITLS_CRYPTO_CHACHA20_RISCV64                           "ChaCha20 RISC-V 64 (RVV)" OFF)
 ## Cipher Modes
 option(HITLS_CRYPTO_MODES_ASM                                  "Cipher Modes ASM" OFF)
 option(HITLS_CRYPTO_MODES_ARMV8                                "Cipher Modes ARMv8" OFF)
