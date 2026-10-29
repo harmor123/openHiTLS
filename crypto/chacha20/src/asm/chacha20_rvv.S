@@ -196,11 +196,15 @@ chacha20_rvv_blocks:
     li   t0, 64
 
     // Strided segment loads: eight 16-word blocks, stride 64 bytes.
-    // The first segment covers words 0..7 of every block, the second
-    // covers words 8..15.  v16..v23 and v24..v31 are input/XOR temps.
-    vlsseg8e32.v v16, (s5), t0
+    // Four 16-byte segment groups keep every access 16-byte aligned even
+    // when the caller's buffer is only 16-byte aligned.
+    vlsseg4e32.v v16, (s5), t0
+    addi t1, s5, 16
+    vlsseg4e32.v v20, (t1), t0
     addi t1, s5, 32
-    vlsseg8e32.v v24, (t1), t0
+    vlsseg4e32.v v24, (t1), t0
+    addi t1, s5, 48
+    vlsseg4e32.v v28, (t1), t0
 
     vxor.vv v16, v16, v0
     vxor.vv v17, v17, v1
@@ -220,9 +224,13 @@ chacha20_rvv_blocks:
     vxor.vv v30, v30, v14
     vxor.vv v31, v31, v15
 
-    vssseg8e32.v v16, (s4), t0
+    vssseg4e32.v v16, (s4), t0
+    addi t2, s4, 16
+    vssseg4e32.v v20, (t2), t0
     addi t2, s4, 32
-    vssseg8e32.v v24, (t2), t0
+    vssseg4e32.v v24, (t2), t0
+    addi t2, s4, 48
+    vssseg4e32.v v28, (t2), t0
 
     addi s4, s4, 512
     addi s5, s5, 512

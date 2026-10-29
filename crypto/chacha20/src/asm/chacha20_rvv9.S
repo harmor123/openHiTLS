@@ -198,38 +198,8 @@ chacha20_rvv_blocks9:
     vid.v v12
     vadd.vx v12, v12, a3
 
-    // Rebuild the vector state from the saved scalar words.
-    lw   t1, 0(sp)
-    vmv.v.x v0, t1
-    lw   t1, 32(sp)
-    vmv.v.x v1, t1
-    lw   t1, 64(sp)
-    vmv.v.x v2, t1
-    lw   t1, 96(sp)
-    vmv.v.x v3, t1
-    lw   t1, 128(sp)
-    vmv.v.x v4, t1
-    lw   t1, 160(sp)
-    vmv.v.x v5, t1
-    lw   t1, 192(sp)
-    vmv.v.x v6, t1
-    lw   t1, 224(sp)
-    vmv.v.x v7, t1
-    lw   t1, 256(sp)
-    vmv.v.x v8, t1
-    lw   t1, 288(sp)
-    vmv.v.x v9, t1
-    lw   t1, 320(sp)
-    vmv.v.x v10, t1
-    lw   t1, 352(sp)
-    vmv.v.x v11, t1
-    lw   t1, 416(sp)
-    vmv.v.x v13, t1
-    lw   t1, 448(sp)
-    vmv.v.x v14, t1
-    lw   t1, 480(sp)
-    vmv.v.x v15, t1
-
+    // Rebuild the vector state from the scalar copies (block 8's initial
+    // words); no stack reloads are needed here.
     addi t1, a3, 8
     sw   t1, 560(sp)
     lw   a5, 512(sp)
@@ -249,9 +219,28 @@ chacha20_rvv_blocks9:
     lw   s11, 568(sp)
     lw   t0, 572(sp)
 
-    // Preload the top-half input while the round loop runs.
+    vmv.v.x v0, a5
+    vmv.v.x v1, a6
+    vmv.v.x v2, a7
+    vmv.v.x v3, s0
+    vmv.v.x v4, s1
+    vmv.v.x v5, s2
+    vmv.v.x v6, s3
+    vmv.v.x v7, s4
+    vmv.v.x v8, s5
+    vmv.v.x v9, s6
+    vmv.v.x v10, s7
+    vmv.v.x v11, s8
+    vmv.v.x v13, s10
+    vmv.v.x v14, s11
+    vmv.v.x v15, t0
+
+    // Preload the top-half input while the round loop runs.  Four 16-byte
+    // segment groups avoid 32-byte misalignment on 16-byte-aligned buffers.
     li   t4, 64
-    vlsseg8e32.v v16, (a1), t4
+    vlsseg4e32.v v16, (a1), t4
+    addi t1, a1, 16
+    vlsseg4e32.v v20, (t1), t4
 
     li   a4, 10
     .p2align 4
@@ -261,77 +250,64 @@ chacha20_rvv_blocks9:
     addi a4, a4, -1
     bnez a4, .Lround9
 
-    // Vector feed-forward from the saved scalar words.
-    lw   t1, 0(sp)
-    vadd.vx v0, v0, t1
-    lw   t1, 32(sp)
-    vadd.vx v1, v1, t1
-    lw   t1, 64(sp)
-    vadd.vx v2, v2, t1
-    lw   t1, 96(sp)
-    vadd.vx v3, v3, t1
-    lw   t1, 128(sp)
-    vadd.vx v4, v4, t1
-    lw   t1, 160(sp)
-    vadd.vx v5, v5, t1
-    lw   t1, 192(sp)
-    vadd.vx v6, v6, t1
-    lw   t1, 224(sp)
-    vadd.vx v7, v7, t1
-    lw   t1, 256(sp)
-    vadd.vx v8, v8, t1
-    lw   t1, 288(sp)
-    vadd.vx v9, v9, t1
-    lw   t1, 320(sp)
-    vadd.vx v10, v10, t1
-    lw   t1, 352(sp)
-    vadd.vx v11, v11, t1
+    // Feed-forward: the saved scalar words are added to the vector lanes and
+    // to scalar block 8 together, reusing one load per state word.
     vid.v v24
     vadd.vx v24, v24, a3
     vadd.vv v12, v12, v24
-    lw   t1, 416(sp)
-    vadd.vx v13, v13, t1
-    lw   t1, 448(sp)
-    vadd.vx v14, v14, t1
-    lw   t1, 480(sp)
-    vadd.vx v15, v15, t1
 
-    addi t1, a1, 32
-    vlsseg8e32.v v24, (t1), t4
-
-    // Scalar feed-forward of block 8, overlapping the bottom-half load.
     lw   t3, 512(sp)
     add  a5, a5, t3
+    vadd.vx v0, v0, t3
     lw   t3, 516(sp)
     add  a6, a6, t3
+    vadd.vx v1, v1, t3
     lw   t3, 520(sp)
     add  a7, a7, t3
+    vadd.vx v2, v2, t3
     lw   t3, 524(sp)
     add  s0, s0, t3
+    vadd.vx v3, v3, t3
     lw   t3, 528(sp)
     add  s1, s1, t3
+    vadd.vx v4, v4, t3
     lw   t3, 532(sp)
     add  s2, s2, t3
+    vadd.vx v5, v5, t3
     lw   t3, 536(sp)
     add  s3, s3, t3
+    vadd.vx v6, v6, t3
     lw   t3, 540(sp)
     add  s4, s4, t3
+    vadd.vx v7, v7, t3
     lw   t3, 544(sp)
     add  s5, s5, t3
+    vadd.vx v8, v8, t3
     lw   t3, 548(sp)
     add  s6, s6, t3
+    vadd.vx v9, v9, t3
     lw   t3, 552(sp)
     add  s7, s7, t3
+    vadd.vx v10, v10, t3
     lw   t3, 556(sp)
     add  s8, s8, t3
+    vadd.vx v11, v11, t3
     lw   t3, 560(sp)
     add  s9, s9, t3
     lw   t3, 564(sp)
     add  s10, s10, t3
+    vadd.vx v13, v13, t3
     lw   t3, 568(sp)
     add  s11, s11, t3
+    vadd.vx v14, v14, t3
     lw   t3, 572(sp)
     add  t0, t0, t3
+    vadd.vx v15, v15, t3
+
+    addi t1, a1, 32
+    vlsseg4e32.v v24, (t1), t4
+    addi t1, a1, 48
+    vlsseg4e32.v v28, (t1), t4
 
     // Interleave the scalar state stores with the vector XOR.
     vxor.vv v16, v16, v0
@@ -367,9 +343,13 @@ chacha20_rvv_blocks9:
     vxor.vv v31, v31, v15
     sw   t0, 732(sp)
 
-    vssseg8e32.v v16, (a0), t4
+    vssseg4e32.v v16, (a0), t4
+    addi t2, a0, 16
+    vssseg4e32.v v20, (t2), t4
     addi t2, a0, 32
-    vssseg8e32.v v24, (t2), t4
+    vssseg4e32.v v24, (t2), t4
+    addi t2, a0, 48
+    vssseg4e32.v v28, (t2), t4
 
     addi t1, a1, 512
     addi t2, sp, 672

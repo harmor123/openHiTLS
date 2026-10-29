@@ -10,6 +10,7 @@
 #include "hitls_build.h"
 #ifdef HITLS_CRYPTO_CHACHA20
 
+#include <stdint.h>
 #include "crypt_utils.h"
 #include "chacha20_local.h"
 
@@ -37,7 +38,10 @@ void CHACHA20_Update(CRYPT_CHACHA20_Ctx *ctx, const uint8_t *in,
     uint32_t counter = ctx->state[12];
     uint32_t off = 0;
 
-    if (ChaCha20HasV256()) {
+    /* vlsseg8e32 requires naturally aligned element accesses.  Callers may
+     * hand us arbitrary byte pointers; use the C path for those. */
+    if (ChaCha20HasV256() &&
+        (((uintptr_t)in | (uintptr_t)out) & (sizeof(uint32_t) - 1u)) == 0) {
         const uint32_t *key = ctx->state + 4;
         const uint8_t *nonce = (const uint8_t *)(ctx->state + 13);
 
