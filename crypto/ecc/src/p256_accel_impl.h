@@ -31,7 +31,7 @@ typedef struct {
     fe x, y, z;
 } jac_point;
 
-#if defined(__riscv) && defined(P256_USE_ASM)
+#if defined(__riscv) && (defined(P256_USE_ASM_P) || defined(P256_USE_ASM_N))
 void p256_mont_mul_p_rv64(uint64_t r[4], const uint64_t a[4],
                           const uint64_t b[4]);
 void p256_mont_mul_n_rv64(uint64_t r[4], const uint64_t a[4],
@@ -207,10 +207,10 @@ static void fn(u256 *r, const u256 *a, const u256 *b)                        \
     }                                                                        \
 }
 
-#if !(defined(__riscv) && defined(P256_USE_ASM))
+#if !(defined(__riscv) && defined(P256_USE_ASM_P))
 DEFINE_MONT_MUL(mont_mul_p, P, P_N0)
 #endif
-#if defined(__riscv) && defined(P256_USE_ASM)
+#if defined(__riscv) && defined(P256_USE_ASM_N)
 static void mont_mul_n(sc *r, const sc *a, const sc *b)
 {
     p256_mont_mul_n_rv64(r->v, a->v, b->v);
@@ -309,7 +309,7 @@ static void fe_mul8(fe *r, const fe *a)
 
 static void fe_mul(fe *r, const fe *a, const fe *b)
 {
-#if defined(__riscv) && defined(P256_USE_ASM)
+#if defined(__riscv) && defined(P256_USE_ASM_P)
     p256_mont_mul_p_rv64(r->v, a->v, b->v);
 #else
     mont_mul_p(r, a, b);

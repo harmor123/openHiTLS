@@ -33,8 +33,15 @@
 #error "This nistp256 RISC-V implementation requires 128-bit integer support."
 #endif
 
+/*
+ * The P-field assembly kernel keeps its accumulator in memory and is
+ * slower than the compiler's inline __int128 path on the X60 core; it is
+ * opt-in with -DP256_USE_ASM_P.  The scalar-field kernel stays enabled.
+ */
 #ifndef P256_NO_ASM
-#define P256_USE_ASM 1
+#ifndef P256_NO_ASM_N
+#define P256_USE_ASM_N 1
+#endif
 #endif
 #include "curve_init_once.h"
 #include "p256_accel_impl.h"
