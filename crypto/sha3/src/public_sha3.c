@@ -17,6 +17,10 @@
 #ifdef HITLS_CRYPTO_SHA3
 #include <stdint.h>
 
+#if defined(HITLS_ASM_RISCV64)
+extern void keccak_f1600_rv64(uint64_t state[25]);
+#endif
+
 #define ROL64(a, offset) ((((uint64_t)(a)) << (offset)) ^ (((uint64_t)(a)) >> (64 - (offset))))
 
 // the round constants, see https://keccak.team/keccak_specs_summary.html
@@ -138,6 +142,10 @@ static void Round(const uint64_t *a, uint64_t *e, uint32_t i)
 
 void SHA3_Keccak(uint8_t *state)
 {
+#if defined(HITLS_ASM_RISCV64)
+    keccak_f1600_rv64((uint64_t *)(uintptr_t)state);
+    return;
+#endif
     uint8_t stTmp[200] = {0};
 
     // See https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.202.pdf

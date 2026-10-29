@@ -15,6 +15,11 @@
 set(_sha3_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/src/sha3.c
 )
+if(HITLS_ASM_RISCV64)
+    list(APPEND _sha3_sources
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/keccak_f1600_rv64.S
+    )
+endif()
 if(HITLS_CRYPTO_SHA3_ARMV8)
     list(APPEND _sha3_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/asm/sha3_armv8.S ${CMAKE_CURRENT_SOURCE_DIR}/src/asm_sha3.c)
 else()
