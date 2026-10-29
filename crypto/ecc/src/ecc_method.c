@@ -22,6 +22,7 @@
 #include "ecp_nistp224.h"
 #include "ecp_nistp256.h"
 #include "ecp_nistp256_accel.h"
+#include "ecp_nistp384.h"
 #include "ecp_nistp521.h"
 #include "ecp_sm2.h"
 
@@ -35,7 +36,7 @@ typedef struct {
 #if (defined(HITLS_CRYPTO_CURVE_NISTP192) && !defined(HITLS_CRYPTO_NIST_USE_ACCEL)) || \
     ((defined(HITLS_CRYPTO_CURVE_NISTP224) || defined(HITLS_CRYPTO_CURVE_NISTP521)) && \
         !defined(HITLS_CRYPTO_NIST_USE_ACCEL)) || \
-    defined(HITLS_CRYPTO_CURVE_NISTP384) || \
+    (defined(HITLS_CRYPTO_CURVE_NISTP384) && !defined(HITLS_CRYPTO_NIST_USE_ACCEL)) || \
     (defined(HITLS_CRYPTO_CURVE_NISTP256) && (!defined(HITLS_CRYPTO_CURVE_NISTP256_ASM) || \
         (!defined(HITLS_CRYPTO_NIST_ECC_ACCELERATE))) && (!defined(HITLS_CRYPTO_NIST_USE_ACCEL)))
 static const ECC_Method EC_METHOD_NIST = {
@@ -222,6 +223,23 @@ static const ECC_Method EC_METHOD_NIST_P256_ACCEL = {
 };
 #endif
 
+#if defined(HITLS_CRYPTO_CURVE_NISTP384) && defined(HITLS_CRYPTO_NIST_USE_ACCEL)
+static const ECC_Method EC_METHOD_NIST_P384_ACCEL = {
+    .pointMulAdd = ECP384_PointMulAdd,
+    .pointMul = ECP384_PointMul,
+    .pointMulFast = ECP384_PointMul,
+    .pointAddAffine = ECP_NistPointAddAffine,
+    .pointDouble = ECP_NistPointDouble,
+    .pointMultDouble = ECP_NistPointMultDouble,
+    .modInv = BN_ModInv,
+    .point2Affine = ECP384_Point2Affine,
+    .bnModNistEccMul = BN_ModNistEccMul,
+    .bnModNistEccSqr = BN_ModNistEccSqr,
+    .modOrdInv = ECP_ModOrderInv,
+    .pointAdd = ECP_NistPointAdd,
+};
+#endif
+
 static const ECC_MethodMap EC_METHODS[] = {
 // p192
 #ifdef HITLS_CRYPTO_CURVE_NISTP192
@@ -262,7 +280,9 @@ static const ECC_MethodMap EC_METHODS[] = {
 
 // p384
 #ifdef HITLS_CRYPTO_CURVE_NISTP384
-    #if defined(HITLS_SIXTY_FOUR_BITS)
+    #ifdef HITLS_CRYPTO_NIST_USE_ACCEL
+        { CRYPT_ECC_NISTP384, &EC_METHOD_NIST_P384_ACCEL },
+    #elif defined(HITLS_SIXTY_FOUR_BITS)
         { CRYPT_ECC_NISTP384, &EC_METHOD_NIST }, // Common nist calculation + fast modulus reduction of Bn
     #else
         { CRYPT_ECC_NISTP384, &EC_METHOD_NIST_MONT },
