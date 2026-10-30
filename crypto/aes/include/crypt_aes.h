@@ -23,10 +23,10 @@
 #include <stdbool.h>
 
 /*
- * The constant-time implementation keeps a much larger expanded-key state
- * than the table-based one.  Keep both members in the public structure so a
- * CT library and a caller compiled without HITLS_CRYPTO_AES_CT still agree on
- * the object layout.
+ * The T-table assembly reads the round count at offset 240 (right after the
+ * 60-word key array), and the constant-time implementation keeps a larger
+ * expanded-key state.  Keep the table fields at their original offsets and
+ * append the CT state, so non-CT and CT builds share one ABI.
  */
 #include "aes_ct.h"
 
@@ -47,11 +47,9 @@ extern "C" {
  * aes key structure
  */
 typedef struct {
-    union {
-        uint32_t key[CRYPT_AES_MAX_KEYLEN];
-        aes_key ct;
-    };
+    uint32_t key[CRYPT_AES_MAX_KEYLEN];
     uint32_t rounds;
+    aes_key ct;
 } CRYPT_AES_Key;
 
 /**

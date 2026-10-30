@@ -20,8 +20,7 @@ typedef struct {
     uint32_t rk[AES_MAX_ROUND_KEYS];   /* big-endian AES words, C path */
     uint32_t rk_z[AES_MAX_ROUND_KEYS]; /* byte-swapped for Zvkned vle32 */
     uint32_t rk_d[AES_MAX_ROUND_KEYS]; /* equivalent inverse cipher keys */
-    uint8_t rk_b[AES_MAX_ROUND_KEYS * 4]
-        __attribute__((aligned(16)));  /* round-key bytes in state order */
+    uint8_t rk_b[AES_MAX_ROUND_KEYS * 4]; /* round-key bytes in state order */
     int rounds;
 } aes_key;
 
