@@ -317,6 +317,13 @@ int32_t ECP384_PointMul(ECC_Para *para, ECC_Point *r, const BN_BigNum *k,
     if (ret == CRYPT_SUCCESS) {
         qz[CURVE_BYTES - 1] = 1;
         ret = BytesToPoint(r, qx, qy, qz);
+    } else if (ret == CRYPT_ECC_POINT_AT_INFINITY) {
+        /*
+         * The project scalar multiplier reports infinity as an error; the
+         * upstream point API uses z == 0 with a success return (see the
+         * k == 0 path in ECC_PointMul).  Normalise to that contract.
+         */
+        ret = BN_Zeroize(&r->z);
     }
     BSL_SAL_CleanseData(kb, sizeof(kb));
     return ret;
@@ -358,6 +365,13 @@ int32_t ECP384_PointMulAdd(ECC_Para *para, ECC_Point *r, const BN_BigNum *k1,
     if (ret == CRYPT_SUCCESS) {
         qz[CURVE_BYTES - 1] = 1;
         ret = BytesToPoint(r, qx, qy, qz);
+    } else if (ret == CRYPT_ECC_POINT_AT_INFINITY) {
+        /*
+         * The project scalar multiplier reports infinity as an error; the
+         * upstream point API uses z == 0 with a success return (see the
+         * k == 0 path in ECC_PointMul).  Normalise to that contract.
+         */
+        ret = BN_Zeroize(&r->z);
     }
     BSL_SAL_CleanseData(k1b, sizeof(k1b));
     BSL_SAL_CleanseData(k2b, sizeof(k2b));
