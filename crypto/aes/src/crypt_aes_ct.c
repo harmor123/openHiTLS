@@ -14,6 +14,7 @@
 #include <string.h>
 #include "crypt_aes.h"
 #include "crypt_errno.h"
+#include "bsl_err_internal.h"
 #include "aes_ct.h"
 
 static int key_bits(uint32_t len)
@@ -26,9 +27,21 @@ static int key_bits(uint32_t len)
 
 static int32_t set_key(CRYPT_AES_Key *ctx, const uint8_t *key, uint32_t len)
 {
-    int bits = key_bits(len);
-    if (ctx == NULL || key == NULL || bits == 0) return CRYPT_AES_ERR_KEYLEN;
-    if (aes_set_encrypt_key(key, bits, &ctx->ct) != 0) return CRYPT_AES_ERR_KEYLEN;
+    int bits;
+
+    if (ctx == NULL || key == NULL) {
+        BSL_ERR_PUSH_ERROR(CRYPT_NULL_INPUT);
+        return CRYPT_NULL_INPUT;
+    }
+    bits = key_bits(len);
+    if (bits == 0) {
+        BSL_ERR_PUSH_ERROR(CRYPT_AES_ERR_KEYLEN);
+        return CRYPT_AES_ERR_KEYLEN;
+    }
+    if (aes_set_encrypt_key(key, bits, &ctx->ct) != 0) {
+        BSL_ERR_PUSH_ERROR(CRYPT_AES_ERR_KEYLEN);
+        return CRYPT_AES_ERR_KEYLEN;
+    }
     ctx->rounds = (uint32_t)ctx->ct.rounds;
     return CRYPT_SUCCESS;
 }
