@@ -18,7 +18,19 @@
 #include <stdint.h>
 
 #if defined(HITLS_ASM_RISCV64)
+#include "crypt_utils.h"
+
 extern void keccak_f1600_rv64(uint64_t state[25]);
+
+static int g_sha3UseAsm = -1;
+
+static int Sha3UseAsm(void)
+{
+    if (g_sha3UseAsm < 0) {
+        g_sha3UseAsm = IsSupportZBB() ? 1 : 0;
+    }
+    return g_sha3UseAsm;
+}
 #endif
 
 #define ROL64(a, offset) ((((uint64_t)(a)) << (offset)) ^ (((uint64_t)(a)) >> (64 - (offset))))
@@ -143,8 +155,10 @@ static void Round(const uint64_t *a, uint64_t *e, uint32_t i)
 void SHA3_Keccak(uint8_t *state)
 {
 #if defined(HITLS_ASM_RISCV64)
-    keccak_f1600_rv64((uint64_t *)(uintptr_t)state);
-    return;
+    if (Sha3UseAsm()) {
+        keccak_f1600_rv64((uint64_t *)(uintptr_t)state);
+        return;
+    }
 #endif
     uint8_t stTmp[200] = {0};
 
