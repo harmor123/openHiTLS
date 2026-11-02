@@ -1177,6 +1177,19 @@ int aes_get_rvv(void)
 }
 #endif
 
+#if defined(__riscv) && defined(AES_USE_BS4)
+/* Four-way RVV decryption is faster when VLEN >= 256; keep the bitsliced
+ * inverse rounds as the fallback for narrower vector units. */
+static int bs4_ready(void)
+{
+#if defined(AES_USE_RVV)
+    return !rvv_ready();
+#else
+    return 1;
+#endif
+}
+#endif
+
 int aes_set_impl(int use_asm)
 {
     if (use_asm == 2) {
@@ -1993,6 +2006,16 @@ void aes_ecb_decrypt(uint8_t *out, const uint8_t *in, size_t len,
         }
         return;
     }
+#if defined(__riscv) && defined(AES_USE_BS4)
+    if (bs4_ready() && len >= 64) {
+        size_t bulk = len & ~(size_t)63;
+
+        aes_bs4_decrypt_blocks(out, in, bulk / 16, ctx->rk_b, ctx->rounds);
+        out += bulk;
+        in += bulk;
+        len -= bulk;
+    }
+#endif
 #if defined(__riscv) && defined(AES_USE_RVV)
     if (rvv_ready() && len >= 64) {
         size_t bulk = len & ~(size_t)63;
@@ -2051,6 +2074,29 @@ void aes_cbc_decrypt(uint8_t *out, const uint8_t *in, size_t len,
         }
         return;
     }
+#if defined(__riscv) && defined(AES_USE_BS4)
+    if (bs4_ready() && len >= 64) {
+        uint8_t plain[256];
+        size_t bulk = len & ~(size_t)63;
+
+        while (bulk >= 64) {
+            size_t n = bulk > sizeof(plain) ? sizeof(plain) : bulk;
+            size_t b;
+            size_t j;
+
+            aes_bs4_decrypt_blocks(plain, in + off, n / 16, ctx->rk_b, ctx->rounds);
+            for (b = 0; b < n / 16; b++) {
+                memcpy(cipher, in + off + 16 * b, 16);
+                for (j = 0; j < 16; j++) {
+                    out[off + 16 * b + j] = (uint8_t)(plain[16 * b + j] ^ iv[j]);
+                }
+                memcpy(iv, cipher, 16);
+            }
+            off += n;
+            bulk -= n;
+        }
+    }
+#endif
 #if defined(__riscv) && defined(AES_USE_RVV)
     if (rvv_ready() && len >= 64) {
         uint8_t plain[256];

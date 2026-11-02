@@ -174,6 +174,74 @@ static void enc4(uint8_t out[64], const uint8_t in[64],
     store4(out, p);
 }
 
+static void bs4_inv_affine(uint64_t r[8], const uint64_t a[8])
+{
+    uint64_t a0 = a[0], a1 = a[1], a2 = a[2], a3 = a[3];
+    uint64_t a4 = a[4], a5 = a[5], a6 = a[6], a7 = a[7];
+    const uint64_t ones = ~(uint64_t)0;
+
+    r[0] = a7 ^ a5 ^ a2 ^ ones;
+    r[1] = a0 ^ a6 ^ a3;
+    r[2] = a1 ^ a7 ^ a4 ^ ones;
+    r[3] = a2 ^ a0 ^ a5;
+    r[4] = a3 ^ a1 ^ a6;
+    r[5] = a4 ^ a2 ^ a7;
+    r[6] = a5 ^ a3 ^ a0;
+    r[7] = a6 ^ a4 ^ a1;
+}
+
+static void bs4_inv_sbox(uint64_t p[8])
+{
+    /* InvSBox = InvAffine o SBox o InvAffine: the middle term reuses the
+     * Boyar-Peralta forward circuit, the two affines are XOR-only. */
+    bs4_inv_affine(p, p);
+    bp_sbox(p);
+    bs4_inv_affine(p, p);
+}
+
+static void bs4_inv_shift_rows(uint64_t p[8])
+{
+    int i;
+    int k;
+
+    /* ShiftRows has order four, so three forward applications invert it. */
+    for (i = 0; i < 3; i++) {
+        for (k = 0; k < 8; k++) {
+            p[k] = shift_rows_word(p[k]);
+        }
+    }
+}
+
+static void bs4_inv_mix_columns(uint64_t p[8])
+{
+    /* The MixColumns polynomial has order four, so applying the
+     * encryption circuit three times is InvMixColumns. */
+    mix_columns(p);
+    mix_columns(p);
+    mix_columns(p);
+}
+
+static void dec4(uint8_t out[64], const uint8_t in[64],
+                 const uint64_t rk[15][8], int rounds)
+{
+    uint64_t p[8];
+    int r;
+    int k;
+
+    load4(p, in);
+    for (k = 0; k < 8; k++) p[k] ^= rk[rounds][k];
+    for (r = rounds - 1; r > 0; r--) {
+        bs4_inv_shift_rows(p);
+        bs4_inv_sbox(p);
+        for (k = 0; k < 8; k++) p[k] ^= rk[r][k];
+        bs4_inv_mix_columns(p);
+    }
+    bs4_inv_shift_rows(p);
+    bs4_inv_sbox(p);
+    for (k = 0; k < 8; k++) p[k] ^= rk[0][k];
+    store4(out, p);
+}
+
 void aes_bs4_encrypt_blocks(uint8_t *out, const uint8_t *in, size_t blocks,
                             const uint8_t *rk_b, int rounds)
 {
@@ -191,5 +259,25 @@ void aes_bs4_encrypt_blocks(uint8_t *out, const uint8_t *in, size_t blocks,
     }
     for (b = 0; b + 4 <= blocks; b += 4) {
         enc4(out + 16 * b, in + 16 * b, rk, rounds);
+    }
+}
+
+void aes_bs4_decrypt_blocks(uint8_t *out, const uint8_t *in, size_t blocks,
+                            const uint8_t *rk_b, int rounds)
+{
+    uint64_t rk[15][8];
+    uint16_t q[8];
+    size_t b;
+    int i;
+    int j;
+
+    for (i = 0; i <= rounds; i++) {
+        block_to_planes(q, rk_b + 16 * i);
+        for (j = 0; j < 8; j++) {
+            rk[i][j] = (uint64_t)q[j] * 0x0001000100010001ULL;
+        }
+    }
+    for (b = 0; b + 4 <= blocks; b += 4) {
+        dec4(out + 16 * b, in + 16 * b, rk, rounds);
     }
 }
