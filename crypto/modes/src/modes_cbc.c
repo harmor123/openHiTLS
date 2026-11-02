@@ -22,7 +22,7 @@
 #include "crypt_errno.h"
 #include "crypt_modes_cbc.h"
 #include "modes_local.h"
-#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64) && !defined(HITLS_CRYPTO_AES_CT)
+#if defined(HITLS_CRYPTO_AES) && (defined(HITLS_CRYPTO_AES_RISCV64) || defined(HITLS_CRYPTO_AES_CT))
 #include "crypt_aes.h"
 #endif
 
@@ -211,6 +211,12 @@ int32_t MODES_CBC_Decrypt(MODES_CipherCommonCtx *ctx, const uint8_t *in, uint8_t
     if (ctx->ciphMeth->algId == CRYPT_SYM_AES128 || ctx->ciphMeth->algId == CRYPT_SYM_AES192 ||
         ctx->ciphMeth->algId == CRYPT_SYM_AES256) {
         return CRYPT_AES_DecryptCbcTbox((const CRYPT_AES_Key *)ctx->ciphCtx, ctx->iv, in, out, len);
+    }
+#endif
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_CT)
+    if (ctx->ciphMeth->algId == CRYPT_SYM_AES128 || ctx->ciphMeth->algId == CRYPT_SYM_AES192 ||
+        ctx->ciphMeth->algId == CRYPT_SYM_AES256) {
+        return CRYPT_AES_CBC_Decrypt((const CRYPT_AES_Key *)ctx->ciphCtx, in, out, len, ctx->iv);
     }
 #endif
 

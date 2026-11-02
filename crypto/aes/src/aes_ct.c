@@ -1993,6 +1993,16 @@ void aes_ecb_decrypt(uint8_t *out, const uint8_t *in, size_t len,
         }
         return;
     }
+#if defined(__riscv) && defined(AES_USE_RVV)
+    if (rvv_ready() && len >= 64) {
+        size_t bulk = len & ~(size_t)63;
+
+        aes_decrypt_blocks_rvv(out, in, bulk / 16, ctx->rk_b, ctx->rounds);
+        out += bulk;
+        in += bulk;
+        len -= bulk;
+    }
+#endif
     for (off = 0; off + 16 <= len; off += 16) {
         aes_decrypt_block(out + off, in + off, ctx);
     }
@@ -2003,7 +2013,7 @@ void aes_cbc_decrypt(uint8_t *out, const uint8_t *in, size_t len,
 {
     uint8_t block[16];
     uint8_t cipher[16];
-    size_t off;
+    size_t off = 0;
     int i;
 
 #if defined(__riscv) && defined(AES_USE_ZVKNED)
@@ -2041,6 +2051,29 @@ void aes_cbc_decrypt(uint8_t *out, const uint8_t *in, size_t len,
         }
         return;
     }
+#if defined(__riscv) && defined(AES_USE_RVV)
+    if (rvv_ready() && len >= 64) {
+        uint8_t plain[256];
+        size_t bulk = len & ~(size_t)63;
+
+        while (bulk >= 64) {
+            size_t n = bulk > sizeof(plain) ? sizeof(plain) : bulk;
+            size_t b;
+            size_t j;
+
+            aes_decrypt_blocks_rvv(plain, in + off, n / 16, ctx->rk_b, ctx->rounds);
+            for (b = 0; b < n / 16; b++) {
+                memcpy(cipher, in + off + 16 * b, 16);
+                for (j = 0; j < 16; j++) {
+                    out[off + 16 * b + j] = (uint8_t)(plain[16 * b + j] ^ iv[j]);
+                }
+                memcpy(iv, cipher, 16);
+            }
+            off += n;
+            bulk -= n;
+        }
+    }
+#endif
     for (; off + 16 <= len; off += 16) {
         memcpy(cipher, in + off, 16);
         aes_decrypt_block(block, cipher, ctx);
@@ -2121,7 +2154,7 @@ void aes_cfb128_decrypt(uint8_t *out, const uint8_t *in, size_t len,
 {
     uint8_t block[16];
     uint8_t cipher[16];
-    size_t off;
+    size_t off = 0;
     size_t i;
 
 #if defined(__riscv) && defined(AES_USE_ZVKNED)
@@ -2166,7 +2199,26 @@ void aes_cfb128_decrypt(uint8_t *out, const uint8_t *in, size_t len,
         }
         return;
     }
-    for (off = 0; off + 16 <= len; off += 16) {
+#if defined(__riscv) && defined(AES_USE_BS4)
+    if (len >= 256) {
+        uint8_t fb[256];
+        uint8_t ct[256];
+        uint8_t ks[256];
+
+        while (len - off >= 256) {
+            memcpy(ct, in + off, sizeof(ct));
+            memcpy(fb, iv, 16);
+            memcpy(fb + 16, ct, sizeof(ct) - 16);
+            aes_bs4_encrypt_blocks(ks, fb, 16, ctx->rk_b, ctx->rounds);
+            for (i = 0; i < sizeof(ct); i++) {
+                out[off + i] = (uint8_t)(ct[i] ^ ks[i]);
+            }
+            memcpy(iv, ct + sizeof(ct) - 16, 16);
+            off += sizeof(ct);
+        }
+    }
+#endif
+    for (; off + 16 <= len; off += 16) {
         memcpy(cipher, in + off, 16);
         aes_encrypt_block(block, iv, ctx);
         for (i = 0; i < 16; i++) {

@@ -29,7 +29,7 @@
 #include "crypt_local_types.h"
 #include "crypt_modes.h"
 
-#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64) && !defined(HITLS_CRYPTO_AES_CT)
+#if defined(HITLS_CRYPTO_AES) && (defined(HITLS_CRYPTO_AES_RISCV64) || defined(HITLS_CRYPTO_AES_CT))
 #include "crypt_aes.h"
 
 static bool IsAesCfb(const MODES_CipherCFBCtx *ctx)
@@ -266,6 +266,14 @@ static int32_t MODES_CFB128_BytesDecrypt(MODES_CipherCFBCtx *ctx, const uint8_t 
         uint32_t bulk = left - (left % blockSize);
         CRYPT_AES_Cfb128Tbox((const CRYPT_AES_Key *)ctx->modeCtx.ciphCtx, iv, inp, outp,
             bulk, false);
+        UPDATE_VALUES(left, inp, outp, bulk);
+    }
+#endif
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_CT)
+    if (left >= blockSize && IsAesCfb(ctx)) {
+        uint32_t bulk = left - (left % blockSize);
+        CRYPT_AES_CFB_Decrypt((const CRYPT_AES_Key *)ctx->modeCtx.ciphCtx, inp, outp,
+            bulk, iv);
         UPDATE_VALUES(left, inp, outp, bulk);
     }
 #endif

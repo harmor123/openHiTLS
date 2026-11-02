@@ -284,4 +284,76 @@ void aes_decrypt_block_rvv(uint8_t out[16], const uint8_t in[16],
     memcpy(out, buf, sizeof(buf));
 }
 
+void aes_decrypt_blocks_rvv(uint8_t *out, const uint8_t *in, size_t blocks,
+                            const uint8_t *rk_b, int rounds)
+{
+    const size_t vl = RVV_VL;
+    vuint8m1_t t0, t1, t2, t3, t4, t5, t6, t7;
+    vuint8m1_t inv_shift, i1, i2, i3;
+    size_t b;
+    int round;
+
+    t0 = rvv_load_table(rvv_inv_sbox + 0);
+    t1 = rvv_load_table(rvv_inv_sbox + 32);
+    t2 = rvv_load_table(rvv_inv_sbox + 64);
+    t3 = rvv_load_table(rvv_inv_sbox + 96);
+    t4 = rvv_load_table(rvv_inv_sbox + 128);
+    t5 = rvv_load_table(rvv_inv_sbox + 160);
+    t6 = rvv_load_table(rvv_inv_sbox + 192);
+    t7 = rvv_load_table(rvv_inv_sbox + 224);
+    inv_shift = __riscv_vle8_v_u8m1(rvv_inv_shift_idx, vl);
+    i1 = __riscv_vle8_v_u8m1(rvv_rot1_idx, vl);
+    i2 = __riscv_vle8_v_u8m1(rvv_rot2_idx, vl);
+    i3 = __riscv_vle8_v_u8m1(rvv_rot3_idx, vl);
+
+    for (b = 0; b + 4 <= blocks; b += 4) {
+        vuint8m1_t s0 = __riscv_vle8_v_u8m1(in + 16 * b, vl);
+        vuint8m1_t s1 = __riscv_vle8_v_u8m1(in + 16 * b + 16, vl);
+        vuint8m1_t s2 = __riscv_vle8_v_u8m1(in + 16 * b + 32, vl);
+        vuint8m1_t s3 = __riscv_vle8_v_u8m1(in + 16 * b + 48, vl);
+        vuint8m1_t k = __riscv_vle8_v_u8m1(rk_b + 16 * rounds, vl);
+
+        s0 = __riscv_vxor_vv_u8m1(s0, k, vl);
+        s1 = __riscv_vxor_vv_u8m1(s1, k, vl);
+        s2 = __riscv_vxor_vv_u8m1(s2, k, vl);
+        s3 = __riscv_vxor_vv_u8m1(s3, k, vl);
+        for (round = rounds - 1; round > 0; round--) {
+            k = __riscv_vle8_v_u8m1(rk_b + 16 * round, vl);
+            s0 = __riscv_vrgather_vv_u8m1(s0, inv_shift, vl);
+            s1 = __riscv_vrgather_vv_u8m1(s1, inv_shift, vl);
+            s2 = __riscv_vrgather_vv_u8m1(s2, inv_shift, vl);
+            s3 = __riscv_vrgather_vv_u8m1(s3, inv_shift, vl);
+            s0 = rvv_sbox_lookup(s0, vl, t0, t1, t2, t3, t4, t5, t6, t7);
+            s1 = rvv_sbox_lookup(s1, vl, t0, t1, t2, t3, t4, t5, t6, t7);
+            s2 = rvv_sbox_lookup(s2, vl, t0, t1, t2, t3, t4, t5, t6, t7);
+            s3 = rvv_sbox_lookup(s3, vl, t0, t1, t2, t3, t4, t5, t6, t7);
+            s0 = __riscv_vxor_vv_u8m1(s0, k, vl);
+            s1 = __riscv_vxor_vv_u8m1(s1, k, vl);
+            s2 = __riscv_vxor_vv_u8m1(s2, k, vl);
+            s3 = __riscv_vxor_vv_u8m1(s3, k, vl);
+            s0 = rvv_inv_mix(s0, vl, i1, i2, i3);
+            s1 = rvv_inv_mix(s1, vl, i1, i2, i3);
+            s2 = rvv_inv_mix(s2, vl, i1, i2, i3);
+            s3 = rvv_inv_mix(s3, vl, i1, i2, i3);
+        }
+        k = __riscv_vle8_v_u8m1(rk_b, vl);
+        s0 = rvv_sbox_lookup(__riscv_vrgather_vv_u8m1(s0, inv_shift, vl),
+                             vl, t0, t1, t2, t3, t4, t5, t6, t7);
+        s1 = rvv_sbox_lookup(__riscv_vrgather_vv_u8m1(s1, inv_shift, vl),
+                             vl, t0, t1, t2, t3, t4, t5, t6, t7);
+        s2 = rvv_sbox_lookup(__riscv_vrgather_vv_u8m1(s2, inv_shift, vl),
+                             vl, t0, t1, t2, t3, t4, t5, t6, t7);
+        s3 = rvv_sbox_lookup(__riscv_vrgather_vv_u8m1(s3, inv_shift, vl),
+                             vl, t0, t1, t2, t3, t4, t5, t6, t7);
+        s0 = __riscv_vxor_vv_u8m1(s0, k, vl);
+        s1 = __riscv_vxor_vv_u8m1(s1, k, vl);
+        s2 = __riscv_vxor_vv_u8m1(s2, k, vl);
+        s3 = __riscv_vxor_vv_u8m1(s3, k, vl);
+        __riscv_vse8_v_u8m1(out + 16 * b, s0, vl);
+        __riscv_vse8_v_u8m1(out + 16 * b + 16, s1, vl);
+        __riscv_vse8_v_u8m1(out + 16 * b + 32, s2, vl);
+        __riscv_vse8_v_u8m1(out + 16 * b + 48, s3, vl);
+    }
+}
+
 #endif /* __riscv && AES_USE_RVV */
