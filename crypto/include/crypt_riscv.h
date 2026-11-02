@@ -23,7 +23,10 @@
 #endif
 
 #define CRYPT_RISCV_V            (1ULL << 2)
+#define CRYPT_RISCV_ZBA          (1ULL << 3)
 #define CRYPT_RISCV_ZBB          (1ULL << 4)
+#define CRYPT_RISCV_ZBS          (1ULL << 5)
+#define CRYPT_RISCV_ZBC          (1ULL << 7)
 #define CRYPT_RISCV_ZKND         (1ULL << 11)
 #define CRYPT_RISCV_ZKNE         (1ULL << 12)
 #define CRYPT_RISCV_ZKNH         (1ULL << 13)

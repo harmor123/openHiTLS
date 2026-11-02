@@ -573,7 +573,10 @@ bool IsSupportSHA512(void);
 
 #elif defined(__riscv) && (__riscv_xlen == 64)
 
+bool IsSupportZBA(void);
 bool IsSupportZBB(void);
+bool IsSupportZBS(void);
+bool IsSupportZBC(void);
 bool IsSupportAESD(void);
 bool IsSupportAESE(void);
 bool IsSupportSHA2(void);

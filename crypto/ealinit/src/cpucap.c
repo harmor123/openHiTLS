@@ -310,9 +310,24 @@ struct riscv_hwprobe {
 
 uint64_t g_cryptRiscvCpuInfo = 0;
 
+bool IsSupportZBA(void)
+{
+    return g_cryptRiscvCpuInfo & CRYPT_RISCV_ZBA;
+}
+
 bool IsSupportZBB(void)
 {
     return g_cryptRiscvCpuInfo & CRYPT_RISCV_ZBB;
+}
+
+bool IsSupportZBS(void)
+{
+    return g_cryptRiscvCpuInfo & CRYPT_RISCV_ZBS;
+}
+
+bool IsSupportZBC(void)
+{
+    return g_cryptRiscvCpuInfo & CRYPT_RISCV_ZBC;
 }
 
 bool IsSupportAESD(void)
