@@ -1138,7 +1138,15 @@ static int g_use_asm = 0;
 static int g_use_fast;
 
 #if defined(__riscv) && defined(AES_USE_RVV)
-static int g_use_rvv = 0;
+static int g_use_rvv = -1;
+
+static int rvv_ready(void)
+{
+    if (g_use_rvv < 0) {
+        g_use_rvv = aes_rvv_available() ? 1 : 0;
+    }
+    return g_use_rvv;
+}
 
 int aes_set_rvv(int use_rvv)
 {
@@ -1155,7 +1163,7 @@ int aes_set_rvv(int use_rvv)
 
 int aes_get_rvv(void)
 {
-    return g_use_rvv;
+    return rvv_ready();
 }
 #else
 int aes_set_rvv(int use_rvv)
@@ -1206,7 +1214,7 @@ int aes_get_impl(void)
         return 1;
     }
 #if defined(__riscv) && defined(AES_USE_RVV)
-    if (g_use_rvv) {
+    if (rvv_ready()) {
         return 2;
     }
 #endif
@@ -1438,7 +1446,7 @@ void aes_encrypt_block(uint8_t out[16], const uint8_t in[16],
     }
 #endif
 #if defined(__riscv) && defined(AES_USE_RVV)
-    if (g_use_rvv) {
+    if (rvv_ready()) {
         aes_encrypt_block_rvv(out, in, ctx->rk_b, ctx->rounds);
         return;
     }
@@ -1942,7 +1950,7 @@ void aes_decrypt_block(uint8_t out[16], const uint8_t in[16],
     }
 #endif
 #if defined(__riscv) && defined(AES_USE_RVV)
-    if (g_use_rvv) {
+    if (rvv_ready()) {
         aes_decrypt_block_rvv(out, in, ctx->rk_b, ctx->rounds);
         return;
     }

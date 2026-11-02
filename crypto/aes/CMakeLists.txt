@@ -19,6 +19,12 @@ if(HITLS_CRYPTO_AES_CT)
     )
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/src/aes_ct.c
         PROPERTIES COMPILE_OPTIONS "-Wno-unused-function;-Wno-maybe-uninitialized")
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "riscv64" OR CMAKE_C_COMPILER MATCHES "riscv64")
+        list(APPEND _aes_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/aes_rvv.c)
+        set(_aes_ct_rvv ON)
+        set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/src/aes_rvv.c
+            PROPERTIES COMPILE_OPTIONS "-march=rv64gcv_zba_zbb_zbc_zbs;-mtune=thead-c906;-mabi=lp64d")
+    endif()
 else()
 set(_aes_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/crypt_aes_setkey.c)
 
@@ -68,6 +74,10 @@ endif()
 endif()
 
 add_library(_hitls_crypto_aes OBJECT ${_aes_sources})
+
+if(_aes_ct_rvv)
+    target_compile_definitions(_hitls_crypto_aes PRIVATE AES_USE_RVV=1)
+endif()
 
 target_link_libraries(_hitls_crypto_aes
     PUBLIC
