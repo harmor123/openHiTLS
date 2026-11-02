@@ -132,13 +132,42 @@ int32_t CRYPT_AES_CTR_Encrypt(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8
             n = sizeof(ctr);
         }
         n &= ~63u;
-        for (b = 0; b < n / 16; b++) {
-            memcpy(ctr + 16 * b, iv, 16);
-            ctr_inc_be128(iv);
+        {
+            uint64_t hi, lo, be_hi;
+            memcpy(&hi, iv, 8);
+            memcpy(&lo, iv + 8, 8);
+            hi = __builtin_bswap64(hi);
+            lo = __builtin_bswap64(lo);
+            be_hi = __builtin_bswap64(hi);
+            for (b = 0; b < n / 16; b++) {
+                uint64_t be_lo = __builtin_bswap64(lo);
+                memcpy(ctr + 16 * b, &be_hi, 8);
+                memcpy(ctr + 16 * b + 8, &be_lo, 8);
+                if (++lo == 0) {
+                    hi++;
+                    be_hi = __builtin_bswap64(hi);
+                }
+            }
+            be_hi = __builtin_bswap64(hi);
+            {
+                uint64_t be_lo = __builtin_bswap64(lo);
+                memcpy(iv, &be_hi, 8);
+                memcpy(iv + 8, &be_lo, 8);
+            }
         }
         aes_ecb_encrypt(ks, ctr, n, &ctx->ct);
-        for (i = 0; i < (int)n; i++) {
-            out[off + i] = in[off + i] ^ ks[i];
+        {
+            size_t j = 0;
+            for (; j + 8 <= n; j += 8) {
+                uint64_t a, k;
+                memcpy(&a, in + off + j, 8);
+                memcpy(&k, ks + j, 8);
+                a ^= k;
+                memcpy(out + off + j, &a, 8);
+            }
+            for (; j < n; j++) {
+                out[off + j] = in[off + j] ^ ks[j];
+            }
         }
         off += n;
     }
