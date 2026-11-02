@@ -102,6 +102,18 @@ int32_t CRYPT_AES_CFB_Decrypt(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8
     return CRYPT_SUCCESS;
 }
 
+static void ctr_inc_be128(uint8_t iv[16])
+{
+    int i;
+
+    for (i = 15; i >= 0; i--) {
+        iv[i]++;
+        if (iv[i] != 0) {
+            break;
+        }
+    }
+}
+
 int32_t CRYPT_AES_CTR_Encrypt(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8_t *out,
                               uint32_t len, uint8_t *iv)
 {
@@ -110,14 +122,31 @@ int32_t CRYPT_AES_CTR_Encrypt(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8
     int i;
 
     if (ctx == NULL || in == NULL || out == NULL || iv == NULL) return CRYPT_AES_ERR_KEYLEN;
+    while (len - off >= 64) {
+        uint8_t ctr[4096];
+        uint8_t ks[4096];
+        uint32_t n = len - off;
+        uint32_t b;
+
+        if (n > sizeof(ctr)) {
+            n = sizeof(ctr);
+        }
+        n &= ~63u;
+        for (b = 0; b < n / 16; b++) {
+            memcpy(ctr + 16 * b, iv, 16);
+            ctr_inc_be128(iv);
+        }
+        aes_ecb_encrypt(ks, ctr, n, &ctx->ct);
+        for (i = 0; i < (int)n; i++) {
+            out[off + i] = in[off + i] ^ ks[i];
+        }
+        off += n;
+    }
     while (off < len) {
         uint32_t n = len - off > 16 ? 16 : len - off;
         aes_encrypt_block(block, iv, &ctx->ct);
         for (i = 0; i < (int)n; i++) out[off + i] = in[off + i] ^ block[i];
-        for (i = 15; i >= 0; i--) {
-            iv[i]++;
-            if (iv[i] != 0) break;
-        }
+        ctr_inc_be128(iv);
         off += n;
     }
     return CRYPT_SUCCESS;

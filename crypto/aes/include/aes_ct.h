@@ -74,6 +74,11 @@ void aes_decrypt_block_rvv(uint8_t out[16], const uint8_t in[16],
                            const uint8_t *rk_b, int rounds);
 #endif
 
+#if defined(__riscv) && defined(AES_USE_BS4)
+void aes_bs4_encrypt_blocks(uint8_t *out, const uint8_t *in, size_t blocks,
+                            const uint8_t *rk_b, int rounds);
+#endif
+
 #if defined(__riscv) && defined(AES_USE_ZVKNED)
 void aes_encrypt_block_zvkned(uint8_t out[16], const uint8_t in[16],
                               const uint32_t *rk, int rounds);

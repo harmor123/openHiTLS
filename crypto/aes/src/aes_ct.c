@@ -1479,6 +1479,16 @@ void aes_ecb_encrypt(uint8_t *out, const uint8_t *in, size_t len,
         }
         return;
     }
+#if defined(__riscv) && defined(AES_USE_BS4)
+    if (len >= 64) {
+        size_t bulk = len & ~(size_t)63;
+
+        aes_bs4_encrypt_blocks(out, in, bulk / 16, ctx->rk_b, ctx->rounds);
+        out += bulk;
+        in += bulk;
+        len -= bulk;
+    }
+#endif
     for (off = 0; off + 16 <= len; off += 16) {
         aes_encrypt_block(out + off, in + off, ctx);
     }
