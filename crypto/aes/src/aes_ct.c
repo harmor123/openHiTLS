@@ -1492,6 +1492,16 @@ void aes_ecb_encrypt(uint8_t *out, const uint8_t *in, size_t len,
         }
         return;
     }
+#if defined(__riscv) && defined(AES_USE_RVV)
+    if (rvv_ready() && len >= 128) {
+        size_t bulk = len & ~(size_t)127;
+
+        aes_encrypt_blocks_rvv(out, in, bulk / 16, ctx->rk_b, ctx->rounds);
+        out += bulk;
+        in += bulk;
+        len -= bulk;
+    }
+#endif
 #if defined(__riscv) && defined(AES_USE_BS4)
     if (len >= 64) {
         size_t bulk = len & ~(size_t)63;
@@ -2245,22 +2255,41 @@ void aes_cfb128_decrypt(uint8_t *out, const uint8_t *in, size_t len,
         }
         return;
     }
-#if defined(__riscv) && defined(AES_USE_BS4)
-    if (len >= 256) {
+#if defined(__riscv) && (defined(AES_USE_BS4) || defined(AES_USE_RVV))
+    if (len - off >= 64) {
         uint8_t fb[256];
         uint8_t ct[256];
         uint8_t ks[256];
 
-        while (len - off >= 256) {
-            memcpy(ct, in + off, sizeof(ct));
+        while (len - off >= 64) {
+            size_t rem = len - off;
+            size_t nb = rem / 16 > 16 ? 16 : rem / 16;
+            size_t n;
+
+            nb &= ~(size_t)3;
+            n = nb * 16;
+            memcpy(ct, in + off, n);
             memcpy(fb, iv, 16);
-            memcpy(fb + 16, ct, sizeof(ct) - 16);
-            aes_bs4_encrypt_blocks(ks, fb, 16, ctx->rk_b, ctx->rounds);
-            for (i = 0; i < sizeof(ct); i++) {
+            memcpy(fb + 16, ct, n - 16);
+#if defined(__riscv) && defined(AES_USE_RVV)
+            if (rvv_ready() && nb >= 8) {
+                aes_encrypt_blocks_rvv(ks, fb, nb, ctx->rk_b, ctx->rounds);
+            } else
+#endif
+#if defined(__riscv) && defined(AES_USE_BS4)
+            {
+                aes_bs4_encrypt_blocks(ks, fb, nb, ctx->rk_b, ctx->rounds);
+            }
+#else
+            {
+                aes_encrypt_blocks_rvv(ks, fb, nb, ctx->rk_b, ctx->rounds);
+            }
+#endif
+            for (i = 0; i < n; i++) {
                 out[off + i] = (uint8_t)(ct[i] ^ ks[i]);
             }
-            memcpy(iv, ct + sizeof(ct) - 16, 16);
-            off += sizeof(ct);
+            memcpy(iv, ct + n - 16, 16);
+            off += n;
         }
     }
 #endif

@@ -72,6 +72,8 @@ void aes_encrypt_block_rvv(uint8_t out[16], const uint8_t in[16],
                            const uint8_t *rk_b, int rounds);
 void aes_decrypt_block_rvv(uint8_t out[16], const uint8_t in[16],
                            const uint8_t *rk_b, int rounds);
+void aes_encrypt_blocks_rvv(uint8_t *out, const uint8_t *in, size_t blocks,
+                            const uint8_t *rk_b, int rounds);
 void aes_decrypt_blocks_rvv(uint8_t *out, const uint8_t *in, size_t blocks,
                             const uint8_t *rk_b, int rounds);
 #endif

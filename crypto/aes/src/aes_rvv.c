@@ -111,6 +111,28 @@ static const uint8_t rvv_rot3_idx[16] __attribute__((aligned(16))) = {
     3, 0, 1, 2, 7, 4, 5, 6, 11, 8, 9, 10, 15, 12, 13, 14,
 };
 
+static const uint8_t rvv_inv_shift_idx2[32] __attribute__((aligned(32))) = {
+    0, 13, 10, 7, 4, 1, 14, 11, 8, 5, 2, 15, 12, 9, 6, 3,
+    16, 29, 26, 23, 20, 17, 30, 27, 24, 21, 18, 31, 28, 25, 22, 19,
+};
+static const uint8_t rvv_rot1_idx2[32] __attribute__((aligned(32))) = {
+    1, 2, 3, 0, 5, 6, 7, 4, 9, 10, 11, 8, 13, 14, 15, 12,
+    17, 18, 19, 16, 21, 22, 23, 20, 25, 26, 27, 24, 29, 30, 31, 28,
+};
+static const uint8_t rvv_rot2_idx2[32] __attribute__((aligned(32))) = {
+    2, 3, 0, 1, 6, 7, 4, 5, 10, 11, 8, 9, 14, 15, 12, 13,
+    18, 19, 16, 17, 22, 23, 20, 21, 26, 27, 24, 25, 30, 31, 28, 29,
+};
+static const uint8_t rvv_rot3_idx2[32] __attribute__((aligned(32))) = {
+    3, 0, 1, 2, 7, 4, 5, 6, 11, 8, 9, 10, 15, 12, 13, 14,
+    19, 16, 17, 18, 23, 20, 21, 22, 27, 24, 25, 26, 31, 28, 29, 30,
+};
+
+static const uint8_t rvv_shift_idx2[32] __attribute__((aligned(32))) = {
+    0, 5, 10, 15, 4, 9, 14, 3, 8, 13, 2, 7, 12, 1, 6, 11,
+    16, 21, 26, 31, 20, 25, 30, 19, 24, 29, 18, 23, 28, 17, 22, 27,
+};
+
 int aes_rvv_available(void)
 {
     unsigned long vlenb;
@@ -284,15 +306,155 @@ void aes_decrypt_block_rvv(uint8_t out[16], const uint8_t in[16],
     memcpy(out, buf, sizeof(buf));
 }
 
+
+void aes_encrypt_blocks_rvv(uint8_t *out, const uint8_t *in, size_t blocks,
+                            const uint8_t *rk_b, int rounds)
+{
+    const size_t vl = RVV_VL;
+    const size_t vl2 = 32;
+    vuint8m1_t t0, t1, t2, t3, t4, t5, t6, t7;
+    vuint8m1_t shift, i1, i2, i3;
+    vuint8m1_t shift2, j1, j2, j3;
+    uint8_t rkb2[15][32];
+    size_t b = 0;
+    int round;
+
+    for (round = 0; round <= rounds; round++) {
+        memcpy(rkb2[round], rk_b + 16 * round, 16);
+        memcpy(rkb2[round] + 16, rk_b + 16 * round, 16);
+    }
+    t0 = rvv_load_table(rvv_sbox + 0);
+    t1 = rvv_load_table(rvv_sbox + 32);
+    t2 = rvv_load_table(rvv_sbox + 64);
+    t3 = rvv_load_table(rvv_sbox + 96);
+    t4 = rvv_load_table(rvv_sbox + 128);
+    t5 = rvv_load_table(rvv_sbox + 160);
+    t6 = rvv_load_table(rvv_sbox + 192);
+    t7 = rvv_load_table(rvv_sbox + 224);
+    shift2 = __riscv_vle8_v_u8m1(rvv_shift_idx2, vl2);
+    j1 = __riscv_vle8_v_u8m1(rvv_rot1_idx2, vl2);
+    j2 = __riscv_vle8_v_u8m1(rvv_rot2_idx2, vl2);
+    j3 = __riscv_vle8_v_u8m1(rvv_rot3_idx2, vl2);
+
+    for (; b + 8 <= blocks; b += 8) {
+        vuint8m1_t s0 = __riscv_vle8_v_u8m1(in + 16 * b, vl2);
+        vuint8m1_t s1 = __riscv_vle8_v_u8m1(in + 16 * b + 32, vl2);
+        vuint8m1_t s2 = __riscv_vle8_v_u8m1(in + 16 * b + 64, vl2);
+        vuint8m1_t s3 = __riscv_vle8_v_u8m1(in + 16 * b + 96, vl2);
+        vuint8m1_t k = __riscv_vle8_v_u8m1(rkb2[0], vl2);
+
+        s0 = __riscv_vxor_vv_u8m1(s0, k, vl2);
+        s1 = __riscv_vxor_vv_u8m1(s1, k, vl2);
+        s2 = __riscv_vxor_vv_u8m1(s2, k, vl2);
+        s3 = __riscv_vxor_vv_u8m1(s3, k, vl2);
+        for (round = 1; round < rounds; round++) {
+            k = __riscv_vle8_v_u8m1(rkb2[round], vl2);
+            s0 = rvv_sbox_lookup(s0, vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+            s1 = rvv_sbox_lookup(s1, vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+            s2 = rvv_sbox_lookup(s2, vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+            s3 = rvv_sbox_lookup(s3, vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+            s0 = __riscv_vrgather_vv_u8m1(s0, shift2, vl2);
+            s1 = __riscv_vrgather_vv_u8m1(s1, shift2, vl2);
+            s2 = __riscv_vrgather_vv_u8m1(s2, shift2, vl2);
+            s3 = __riscv_vrgather_vv_u8m1(s3, shift2, vl2);
+            s0 = rvv_mix(s0, vl2, j1, j2, j3);
+            s1 = rvv_mix(s1, vl2, j1, j2, j3);
+            s2 = rvv_mix(s2, vl2, j1, j2, j3);
+            s3 = rvv_mix(s3, vl2, j1, j2, j3);
+            s0 = __riscv_vxor_vv_u8m1(s0, k, vl2);
+            s1 = __riscv_vxor_vv_u8m1(s1, k, vl2);
+            s2 = __riscv_vxor_vv_u8m1(s2, k, vl2);
+            s3 = __riscv_vxor_vv_u8m1(s3, k, vl2);
+        }
+        k = __riscv_vle8_v_u8m1(rkb2[rounds], vl2);
+        s0 = rvv_sbox_lookup(s0, vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+        s1 = rvv_sbox_lookup(s1, vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+        s2 = rvv_sbox_lookup(s2, vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+        s3 = rvv_sbox_lookup(s3, vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+        s0 = __riscv_vrgather_vv_u8m1(s0, shift2, vl2);
+        s1 = __riscv_vrgather_vv_u8m1(s1, shift2, vl2);
+        s2 = __riscv_vrgather_vv_u8m1(s2, shift2, vl2);
+        s3 = __riscv_vrgather_vv_u8m1(s3, shift2, vl2);
+        s0 = __riscv_vxor_vv_u8m1(s0, k, vl2);
+        s1 = __riscv_vxor_vv_u8m1(s1, k, vl2);
+        s2 = __riscv_vxor_vv_u8m1(s2, k, vl2);
+        s3 = __riscv_vxor_vv_u8m1(s3, k, vl2);
+        __riscv_vse8_v_u8m1(out + 16 * b, s0, vl2);
+        __riscv_vse8_v_u8m1(out + 16 * b + 32, s1, vl2);
+        __riscv_vse8_v_u8m1(out + 16 * b + 64, s2, vl2);
+        __riscv_vse8_v_u8m1(out + 16 * b + 96, s3, vl2);
+    }
+    shift = __riscv_vle8_v_u8m1(rvv_shift_idx, vl);
+    i1 = __riscv_vle8_v_u8m1(rvv_rot1_idx, vl);
+    i2 = __riscv_vle8_v_u8m1(rvv_rot2_idx, vl);
+    i3 = __riscv_vle8_v_u8m1(rvv_rot3_idx, vl);
+
+    for (; b + 4 <= blocks; b += 4) {
+        vuint8m1_t s0 = __riscv_vle8_v_u8m1(in + 16 * b, vl);
+        vuint8m1_t s1 = __riscv_vle8_v_u8m1(in + 16 * b + 16, vl);
+        vuint8m1_t s2 = __riscv_vle8_v_u8m1(in + 16 * b + 32, vl);
+        vuint8m1_t s3 = __riscv_vle8_v_u8m1(in + 16 * b + 48, vl);
+        vuint8m1_t k = __riscv_vle8_v_u8m1(rk_b, vl);
+
+        s0 = __riscv_vxor_vv_u8m1(s0, k, vl);
+        s1 = __riscv_vxor_vv_u8m1(s1, k, vl);
+        s2 = __riscv_vxor_vv_u8m1(s2, k, vl);
+        s3 = __riscv_vxor_vv_u8m1(s3, k, vl);
+        for (round = 1; round < rounds; round++) {
+            k = __riscv_vle8_v_u8m1(rk_b + 16 * round, vl);
+            s0 = rvv_sbox_lookup(s0, vl, t0, t1, t2, t3, t4, t5, t6, t7);
+            s1 = rvv_sbox_lookup(s1, vl, t0, t1, t2, t3, t4, t5, t6, t7);
+            s2 = rvv_sbox_lookup(s2, vl, t0, t1, t2, t3, t4, t5, t6, t7);
+            s3 = rvv_sbox_lookup(s3, vl, t0, t1, t2, t3, t4, t5, t6, t7);
+            s0 = __riscv_vrgather_vv_u8m1(s0, shift, vl);
+            s1 = __riscv_vrgather_vv_u8m1(s1, shift, vl);
+            s2 = __riscv_vrgather_vv_u8m1(s2, shift, vl);
+            s3 = __riscv_vrgather_vv_u8m1(s3, shift, vl);
+            s0 = rvv_mix(s0, vl, i1, i2, i3);
+            s1 = rvv_mix(s1, vl, i1, i2, i3);
+            s2 = rvv_mix(s2, vl, i1, i2, i3);
+            s3 = rvv_mix(s3, vl, i1, i2, i3);
+            s0 = __riscv_vxor_vv_u8m1(s0, k, vl);
+            s1 = __riscv_vxor_vv_u8m1(s1, k, vl);
+            s2 = __riscv_vxor_vv_u8m1(s2, k, vl);
+            s3 = __riscv_vxor_vv_u8m1(s3, k, vl);
+        }
+        k = __riscv_vle8_v_u8m1(rk_b + 16 * rounds, vl);
+        s0 = rvv_sbox_lookup(s0, vl, t0, t1, t2, t3, t4, t5, t6, t7);
+        s1 = rvv_sbox_lookup(s1, vl, t0, t1, t2, t3, t4, t5, t6, t7);
+        s2 = rvv_sbox_lookup(s2, vl, t0, t1, t2, t3, t4, t5, t6, t7);
+        s3 = rvv_sbox_lookup(s3, vl, t0, t1, t2, t3, t4, t5, t6, t7);
+        s0 = __riscv_vrgather_vv_u8m1(s0, shift, vl);
+        s1 = __riscv_vrgather_vv_u8m1(s1, shift, vl);
+        s2 = __riscv_vrgather_vv_u8m1(s2, shift, vl);
+        s3 = __riscv_vrgather_vv_u8m1(s3, shift, vl);
+        s0 = __riscv_vxor_vv_u8m1(s0, k, vl);
+        s1 = __riscv_vxor_vv_u8m1(s1, k, vl);
+        s2 = __riscv_vxor_vv_u8m1(s2, k, vl);
+        s3 = __riscv_vxor_vv_u8m1(s3, k, vl);
+        __riscv_vse8_v_u8m1(out + 16 * b, s0, vl);
+        __riscv_vse8_v_u8m1(out + 16 * b + 16, s1, vl);
+        __riscv_vse8_v_u8m1(out + 16 * b + 32, s2, vl);
+        __riscv_vse8_v_u8m1(out + 16 * b + 48, s3, vl);
+    }
+}
+
 void aes_decrypt_blocks_rvv(uint8_t *out, const uint8_t *in, size_t blocks,
                             const uint8_t *rk_b, int rounds)
 {
     const size_t vl = RVV_VL;
+    const size_t vl2 = 32;
     vuint8m1_t t0, t1, t2, t3, t4, t5, t6, t7;
     vuint8m1_t inv_shift, i1, i2, i3;
-    size_t b;
+    vuint8m1_t inv_shift2, j1, j2, j3;
+    uint8_t rkb2[15][32];
+    size_t b = 0;
     int round;
 
+    for (round = 0; round <= rounds; round++) {
+        memcpy(rkb2[round], rk_b + 16 * round, 16);
+        memcpy(rkb2[round] + 16, rk_b + 16 * round, 16);
+    }
     t0 = rvv_load_table(rvv_inv_sbox + 0);
     t1 = rvv_load_table(rvv_inv_sbox + 32);
     t2 = rvv_load_table(rvv_inv_sbox + 64);
@@ -301,12 +463,65 @@ void aes_decrypt_blocks_rvv(uint8_t *out, const uint8_t *in, size_t blocks,
     t5 = rvv_load_table(rvv_inv_sbox + 160);
     t6 = rvv_load_table(rvv_inv_sbox + 192);
     t7 = rvv_load_table(rvv_inv_sbox + 224);
+    inv_shift2 = __riscv_vle8_v_u8m1(rvv_inv_shift_idx2, vl2);
+    j1 = __riscv_vle8_v_u8m1(rvv_rot1_idx2, vl2);
+    j2 = __riscv_vle8_v_u8m1(rvv_rot2_idx2, vl2);
+    j3 = __riscv_vle8_v_u8m1(rvv_rot3_idx2, vl2);
+
+    for (; b + 8 <= blocks; b += 8) {
+        vuint8m1_t s0 = __riscv_vle8_v_u8m1(in + 16 * b, vl2);
+        vuint8m1_t s1 = __riscv_vle8_v_u8m1(in + 16 * b + 32, vl2);
+        vuint8m1_t s2 = __riscv_vle8_v_u8m1(in + 16 * b + 64, vl2);
+        vuint8m1_t s3 = __riscv_vle8_v_u8m1(in + 16 * b + 96, vl2);
+        vuint8m1_t k = __riscv_vle8_v_u8m1(rkb2[rounds], vl2);
+
+        s0 = __riscv_vxor_vv_u8m1(s0, k, vl2);
+        s1 = __riscv_vxor_vv_u8m1(s1, k, vl2);
+        s2 = __riscv_vxor_vv_u8m1(s2, k, vl2);
+        s3 = __riscv_vxor_vv_u8m1(s3, k, vl2);
+        for (round = rounds - 1; round > 0; round--) {
+            k = __riscv_vle8_v_u8m1(rkb2[round], vl2);
+            s0 = __riscv_vrgather_vv_u8m1(s0, inv_shift2, vl2);
+            s1 = __riscv_vrgather_vv_u8m1(s1, inv_shift2, vl2);
+            s2 = __riscv_vrgather_vv_u8m1(s2, inv_shift2, vl2);
+            s3 = __riscv_vrgather_vv_u8m1(s3, inv_shift2, vl2);
+            s0 = rvv_sbox_lookup(s0, vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+            s1 = rvv_sbox_lookup(s1, vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+            s2 = rvv_sbox_lookup(s2, vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+            s3 = rvv_sbox_lookup(s3, vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+            s0 = __riscv_vxor_vv_u8m1(s0, k, vl2);
+            s1 = __riscv_vxor_vv_u8m1(s1, k, vl2);
+            s2 = __riscv_vxor_vv_u8m1(s2, k, vl2);
+            s3 = __riscv_vxor_vv_u8m1(s3, k, vl2);
+            s0 = rvv_inv_mix(s0, vl2, j1, j2, j3);
+            s1 = rvv_inv_mix(s1, vl2, j1, j2, j3);
+            s2 = rvv_inv_mix(s2, vl2, j1, j2, j3);
+            s3 = rvv_inv_mix(s3, vl2, j1, j2, j3);
+        }
+        k = __riscv_vle8_v_u8m1(rkb2[0], vl2);
+        s0 = rvv_sbox_lookup(__riscv_vrgather_vv_u8m1(s0, inv_shift2, vl2),
+                             vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+        s1 = rvv_sbox_lookup(__riscv_vrgather_vv_u8m1(s1, inv_shift2, vl2),
+                             vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+        s2 = rvv_sbox_lookup(__riscv_vrgather_vv_u8m1(s2, inv_shift2, vl2),
+                             vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+        s3 = rvv_sbox_lookup(__riscv_vrgather_vv_u8m1(s3, inv_shift2, vl2),
+                             vl2, t0, t1, t2, t3, t4, t5, t6, t7);
+        s0 = __riscv_vxor_vv_u8m1(s0, k, vl2);
+        s1 = __riscv_vxor_vv_u8m1(s1, k, vl2);
+        s2 = __riscv_vxor_vv_u8m1(s2, k, vl2);
+        s3 = __riscv_vxor_vv_u8m1(s3, k, vl2);
+        __riscv_vse8_v_u8m1(out + 16 * b, s0, vl2);
+        __riscv_vse8_v_u8m1(out + 16 * b + 32, s1, vl2);
+        __riscv_vse8_v_u8m1(out + 16 * b + 64, s2, vl2);
+        __riscv_vse8_v_u8m1(out + 16 * b + 96, s3, vl2);
+    }
     inv_shift = __riscv_vle8_v_u8m1(rvv_inv_shift_idx, vl);
     i1 = __riscv_vle8_v_u8m1(rvv_rot1_idx, vl);
     i2 = __riscv_vle8_v_u8m1(rvv_rot2_idx, vl);
     i3 = __riscv_vle8_v_u8m1(rvv_rot3_idx, vl);
 
-    for (b = 0; b + 4 <= blocks; b += 4) {
+    for (; b + 4 <= blocks; b += 4) {
         vuint8m1_t s0 = __riscv_vle8_v_u8m1(in + 16 * b, vl);
         vuint8m1_t s1 = __riscv_vle8_v_u8m1(in + 16 * b + 16, vl);
         vuint8m1_t s2 = __riscv_vle8_v_u8m1(in + 16 * b + 32, vl);
