@@ -138,6 +138,13 @@ static int32_t MODES_CFB128_BytesEncrypt(MODES_CipherCFBCtx *ctx, const uint8_t 
         UPDATE_VALUES(left, inp, outp, bulk);
     }
 #endif
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64) && defined(HITLS_CRYPTO_AES_CT)
+    if (left >= blockSize && IsAesCfb(ctx)) {
+        uint32_t bulk = left - (left % blockSize);
+        CRYPT_AES_CFB_Encrypt((const CRYPT_AES_Key *)ctx->modeCtx.ciphCtx, inp, outp, bulk, iv);
+        UPDATE_VALUES(left, inp, outp, bulk);
+    }
+#endif
     while (left >= blockSize) {
         ret = ctx->modeCtx.ciphMeth->encryptBlock(ctx->modeCtx.ciphCtx, iv, iv, blockSize);
         if (ret != CRYPT_SUCCESS) {

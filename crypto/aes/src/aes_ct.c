@@ -1558,6 +1558,12 @@ void aes_cbc_encrypt(uint8_t *out, const uint8_t *in, size_t len,
         }
         return;
     }
+#if defined(__riscv) && defined(AES_USE_RVV)
+    if (rvv_ready() && len >= 16) {
+        aes_cbc_encrypt_rvv(out, in, len, iv, ctx->rk_b, ctx->rounds);
+        return;
+    }
+#endif
     for (off = 0; off + 16 <= len; off += 16) {
         for (i = 0; i < 16; i++) {
             block[i] = (uint8_t)(in[off + i] ^ iv[i]);
@@ -2198,6 +2204,15 @@ void aes_cfb128_encrypt(uint8_t *out, const uint8_t *in, size_t len,
         }
         return;
     }
+#if defined(__riscv) && defined(AES_USE_RVV)
+    if (rvv_ready() && len >= 16) {
+        size_t bulk = len & ~(size_t)15;
+        aes_cfb128_encrypt_rvv(out, in, bulk, iv, ctx->rk_b, ctx->rounds);
+        out += bulk;
+        in += bulk;
+        len -= bulk;
+    }
+#endif
     for (off = 0; off + 16 <= len; off += 16) {
         aes_encrypt_block(block, iv, ctx);
         for (i = 0; i < 16; i++) {
@@ -2406,6 +2421,15 @@ void aes_ofb_crypt(uint8_t *out, const uint8_t *in, size_t len,
         } else {
             bulk = 0;
         }
+        out += bulk;
+        in += bulk;
+        len -= bulk;
+    }
+#endif
+#if defined(__riscv) && defined(AES_USE_RVV)
+    if (rvv_ready() && len >= 16) {
+        size_t bulk = len & ~(size_t)15;
+        aes_ofb_crypt_rvv(out, in, bulk, iv, ctx->rk_b, ctx->rounds);
         out += bulk;
         in += bulk;
         len -= bulk;

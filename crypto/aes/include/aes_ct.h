@@ -76,6 +76,12 @@ void aes_encrypt_blocks_rvv(uint8_t *out, const uint8_t *in, size_t blocks,
                             const uint8_t *rk_b, int rounds);
 void aes_decrypt_blocks_rvv(uint8_t *out, const uint8_t *in, size_t blocks,
                             const uint8_t *rk_b, int rounds);
+void aes_cbc_encrypt_rvv(uint8_t *out, const uint8_t *in, size_t len,
+                         uint8_t iv[16], const uint8_t *rk_b, int rounds);
+void aes_cfb128_encrypt_rvv(uint8_t *out, const uint8_t *in, size_t len,
+                            uint8_t iv[16], const uint8_t *rk_b, int rounds);
+void aes_ofb_crypt_rvv(uint8_t *out, const uint8_t *in, size_t len,
+                       uint8_t iv[16], const uint8_t *rk_b, int rounds);
 #endif
 
 #if defined(__riscv) && defined(AES_USE_BS4)

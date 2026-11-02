@@ -160,6 +160,12 @@ int32_t MODES_CBC_Encrypt(MODES_CipherCommonCtx *ctx, const uint8_t *in, uint8_t
         return CRYPT_AES_EncryptCbcTbox((const CRYPT_AES_Key *)ctx->ciphCtx, ctx->iv, in, out, len);
     }
 #endif
+#if defined(HITLS_CRYPTO_AES) && defined(HITLS_CRYPTO_AES_RISCV64) && defined(HITLS_CRYPTO_AES_CT)
+    if (ctx->ciphMeth->algId == CRYPT_SYM_AES128 || ctx->ciphMeth->algId == CRYPT_SYM_AES192 ||
+        ctx->ciphMeth->algId == CRYPT_SYM_AES256) {
+        return CRYPT_AES_CBC_Encrypt((const CRYPT_AES_Key *)ctx->ciphCtx, in, out, len, ctx->iv);
+    }
+#endif
 
     while (left >= blockSize) {
         /* Plaintext XOR IV. BlockSize must be an integer multiple of 4 bytes. */

@@ -307,6 +307,118 @@ void aes_decrypt_block_rvv(uint8_t out[16], const uint8_t in[16],
 }
 
 
+
+static inline __attribute__((always_inline))
+vuint8m1_t rvv_encrypt_core(vuint8m1_t s, const uint8_t *rk_b, int rounds,
+                            vuint8m1_t t0, vuint8m1_t t1,
+                            vuint8m1_t t2, vuint8m1_t t3,
+                            vuint8m1_t t4, vuint8m1_t t5,
+                            vuint8m1_t t6, vuint8m1_t t7,
+                            vuint8m1_t shift, vuint8m1_t i1,
+                            vuint8m1_t i2, vuint8m1_t i3)
+{
+    const size_t vl = RVV_VL;
+    int round;
+
+    s = __riscv_vxor_vv_u8m1(s, __riscv_vle8_v_u8m1(rk_b, vl), vl);
+    for (round = 1; round < rounds; round++) {
+        s = rvv_sbox_lookup(s, vl, t0, t1, t2, t3, t4, t5, t6, t7);
+        s = __riscv_vrgather_vv_u8m1(s, shift, vl);
+        s = rvv_mix(s, vl, i1, i2, i3);
+        s = __riscv_vxor_vv_u8m1(s, __riscv_vle8_v_u8m1(rk_b + 16 * round, vl), vl);
+    }
+    s = rvv_sbox_lookup(s, vl, t0, t1, t2, t3, t4, t5, t6, t7);
+    s = __riscv_vrgather_vv_u8m1(s, shift, vl);
+    return __riscv_vxor_vv_u8m1(s, __riscv_vle8_v_u8m1(rk_b + 16 * rounds, vl), vl);
+}
+
+void aes_cbc_encrypt_rvv(uint8_t *out, const uint8_t *in, size_t len,
+                         uint8_t iv[16], const uint8_t *rk_b, int rounds)
+{
+    const size_t vl = RVV_VL;
+    vuint8m1_t t0 = rvv_load_table(rvv_sbox + 0);
+    vuint8m1_t t1 = rvv_load_table(rvv_sbox + 32);
+    vuint8m1_t t2 = rvv_load_table(rvv_sbox + 64);
+    vuint8m1_t t3 = rvv_load_table(rvv_sbox + 96);
+    vuint8m1_t t4 = rvv_load_table(rvv_sbox + 128);
+    vuint8m1_t t5 = rvv_load_table(rvv_sbox + 160);
+    vuint8m1_t t6 = rvv_load_table(rvv_sbox + 192);
+    vuint8m1_t t7 = rvv_load_table(rvv_sbox + 224);
+    vuint8m1_t shift = __riscv_vle8_v_u8m1(rvv_shift_idx, vl);
+    vuint8m1_t i1 = __riscv_vle8_v_u8m1(rvv_rot1_idx, vl);
+    vuint8m1_t i2 = __riscv_vle8_v_u8m1(rvv_rot2_idx, vl);
+    vuint8m1_t i3 = __riscv_vle8_v_u8m1(rvv_rot3_idx, vl);
+    vuint8m1_t v = __riscv_vle8_v_u8m1(iv, vl);
+    size_t off;
+
+    for (off = 0; off + 16 <= len; off += 16) {
+        vuint8m1_t s = __riscv_vle8_v_u8m1(in + off, vl);
+        s = __riscv_vxor_vv_u8m1(s, v, vl);
+        s = rvv_encrypt_core(s, rk_b, rounds, t0, t1, t2, t3, t4, t5, t6, t7,
+                             shift, i1, i2, i3);
+        __riscv_vse8_v_u8m1(out + off, s, vl);
+        v = s;
+    }
+    __riscv_vse8_v_u8m1(iv, v, vl);
+}
+
+void aes_cfb128_encrypt_rvv(uint8_t *out, const uint8_t *in, size_t len,
+                            uint8_t iv[16], const uint8_t *rk_b, int rounds)
+{
+    const size_t vl = RVV_VL;
+    vuint8m1_t t0 = rvv_load_table(rvv_sbox + 0);
+    vuint8m1_t t1 = rvv_load_table(rvv_sbox + 32);
+    vuint8m1_t t2 = rvv_load_table(rvv_sbox + 64);
+    vuint8m1_t t3 = rvv_load_table(rvv_sbox + 96);
+    vuint8m1_t t4 = rvv_load_table(rvv_sbox + 128);
+    vuint8m1_t t5 = rvv_load_table(rvv_sbox + 160);
+    vuint8m1_t t6 = rvv_load_table(rvv_sbox + 192);
+    vuint8m1_t t7 = rvv_load_table(rvv_sbox + 224);
+    vuint8m1_t shift = __riscv_vle8_v_u8m1(rvv_shift_idx, vl);
+    vuint8m1_t i1 = __riscv_vle8_v_u8m1(rvv_rot1_idx, vl);
+    vuint8m1_t i2 = __riscv_vle8_v_u8m1(rvv_rot2_idx, vl);
+    vuint8m1_t i3 = __riscv_vle8_v_u8m1(rvv_rot3_idx, vl);
+    vuint8m1_t fb = __riscv_vle8_v_u8m1(iv, vl);
+    size_t off;
+
+    for (off = 0; off + 16 <= len; off += 16) {
+        vuint8m1_t s = rvv_encrypt_core(fb, rk_b, rounds, t0, t1, t2, t3, t4, t5, t6, t7,
+                                        shift, i1, i2, i3);
+        s = __riscv_vxor_vv_u8m1(s, __riscv_vle8_v_u8m1(in + off, vl), vl);
+        __riscv_vse8_v_u8m1(out + off, s, vl);
+        fb = s;
+    }
+    __riscv_vse8_v_u8m1(iv, fb, vl);
+}
+
+void aes_ofb_crypt_rvv(uint8_t *out, const uint8_t *in, size_t len,
+                       uint8_t iv[16], const uint8_t *rk_b, int rounds)
+{
+    const size_t vl = RVV_VL;
+    vuint8m1_t t0 = rvv_load_table(rvv_sbox + 0);
+    vuint8m1_t t1 = rvv_load_table(rvv_sbox + 32);
+    vuint8m1_t t2 = rvv_load_table(rvv_sbox + 64);
+    vuint8m1_t t3 = rvv_load_table(rvv_sbox + 96);
+    vuint8m1_t t4 = rvv_load_table(rvv_sbox + 128);
+    vuint8m1_t t5 = rvv_load_table(rvv_sbox + 160);
+    vuint8m1_t t6 = rvv_load_table(rvv_sbox + 192);
+    vuint8m1_t t7 = rvv_load_table(rvv_sbox + 224);
+    vuint8m1_t shift = __riscv_vle8_v_u8m1(rvv_shift_idx, vl);
+    vuint8m1_t i1 = __riscv_vle8_v_u8m1(rvv_rot1_idx, vl);
+    vuint8m1_t i2 = __riscv_vle8_v_u8m1(rvv_rot2_idx, vl);
+    vuint8m1_t i3 = __riscv_vle8_v_u8m1(rvv_rot3_idx, vl);
+    vuint8m1_t fb = __riscv_vle8_v_u8m1(iv, vl);
+    size_t off;
+
+    for (off = 0; off + 16 <= len; off += 16) {
+        fb = rvv_encrypt_core(fb, rk_b, rounds, t0, t1, t2, t3, t4, t5, t6, t7,
+                              shift, i1, i2, i3);
+        __riscv_vse8_v_u8m1(out + off,
+                            __riscv_vxor_vv_u8m1(fb, __riscv_vle8_v_u8m1(in + off, vl), vl), vl);
+    }
+    __riscv_vse8_v_u8m1(iv, fb, vl);
+}
+
 void aes_encrypt_blocks_rvv(uint8_t *out, const uint8_t *in, size_t blocks,
                             const uint8_t *rk_b, int rounds)
 {

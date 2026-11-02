@@ -102,6 +102,22 @@ int32_t CRYPT_AES_CFB_Decrypt(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8
     return CRYPT_SUCCESS;
 }
 
+int32_t CRYPT_AES_CFB_Encrypt(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8_t *out,
+                              uint32_t len, uint8_t *iv)
+{
+    if (ctx == NULL || in == NULL || out == NULL || iv == NULL) return CRYPT_NULL_INPUT;
+    aes_cfb128_encrypt(out, in, len, iv, &ctx->ct);
+    return CRYPT_SUCCESS;
+}
+
+int32_t CRYPT_AES_OFB_Crypt(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8_t *out,
+                            uint32_t len, uint8_t *iv)
+{
+    if (ctx == NULL || in == NULL || out == NULL || iv == NULL) return CRYPT_NULL_INPUT;
+    aes_ofb_crypt(out, in, len, iv, &ctx->ct);
+    return CRYPT_SUCCESS;
+}
+
 static void ctr_inc_be128(uint8_t iv[16])
 {
     int i;

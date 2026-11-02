@@ -149,6 +149,13 @@ void CRYPT_AES_OfbTbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const uint8_t *
 
 void CRYPT_AES_Cfb8Tbox(const CRYPT_AES_Key *ctx, uint8_t iv[16], const uint8_t *in,
     uint8_t *out, uint32_t len, bool enc);
+
+#ifdef HITLS_CRYPTO_AES_CT
+int32_t CRYPT_AES_CFB_Encrypt(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8_t *out,
+                              uint32_t len, uint8_t *iv);
+int32_t CRYPT_AES_OFB_Crypt(const CRYPT_AES_Key *ctx, const uint8_t *in, uint8_t *out,
+                            uint32_t len, uint8_t *iv);
+#endif
 #endif
 
 #ifdef HITLS_CRYPTO_CBC
