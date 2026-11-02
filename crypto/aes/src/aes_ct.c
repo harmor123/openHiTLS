@@ -2041,6 +2041,31 @@ void aes_ecb_decrypt(uint8_t *out, const uint8_t *in, size_t len,
     }
 }
 
+static void cbc_xor_chain(uint8_t *out, const uint8_t *in, size_t off,
+                          const uint8_t *plain, size_t blocks, uint8_t iv[16])
+{
+    size_t b;
+
+    for (b = 0; b < blocks; b++) {
+        const uint8_t *c = in + off + 16 * b;
+        const uint8_t *p = plain + 16 * b;
+        uint64_t c0, c1, v0, v1, p0, p1;
+
+        memcpy(&c0, c, 8);
+        memcpy(&c1, c + 8, 8);
+        memcpy(&v0, iv, 8);
+        memcpy(&v1, iv + 8, 8);
+        memcpy(&p0, p, 8);
+        memcpy(&p1, p + 8, 8);
+        p0 ^= v0;
+        p1 ^= v1;
+        memcpy(out + off + 16 * b, &p0, 8);
+        memcpy(out + off + 16 * b + 8, &p1, 8);
+        memcpy(iv, &c0, 8);
+        memcpy(iv + 8, &c1, 8);
+    }
+}
+
 void aes_cbc_decrypt(uint8_t *out, const uint8_t *in, size_t len,
                      uint8_t iv[16], const aes_key *ctx)
 {
@@ -2091,17 +2116,9 @@ void aes_cbc_decrypt(uint8_t *out, const uint8_t *in, size_t len,
 
         while (bulk >= 64) {
             size_t n = bulk > sizeof(plain) ? sizeof(plain) : bulk;
-            size_t b;
-            size_t j;
 
             aes_bs4_decrypt_blocks(plain, in + off, n / 16, ctx->rk_b, ctx->rounds);
-            for (b = 0; b < n / 16; b++) {
-                memcpy(cipher, in + off + 16 * b, 16);
-                for (j = 0; j < 16; j++) {
-                    out[off + 16 * b + j] = (uint8_t)(plain[16 * b + j] ^ iv[j]);
-                }
-                memcpy(iv, cipher, 16);
-            }
+            cbc_xor_chain(out, in, off, plain, n / 16, iv);
             off += n;
             bulk -= n;
         }
@@ -2114,17 +2131,9 @@ void aes_cbc_decrypt(uint8_t *out, const uint8_t *in, size_t len,
 
         while (bulk >= 64) {
             size_t n = bulk > sizeof(plain) ? sizeof(plain) : bulk;
-            size_t b;
-            size_t j;
 
             aes_decrypt_blocks_rvv(plain, in + off, n / 16, ctx->rk_b, ctx->rounds);
-            for (b = 0; b < n / 16; b++) {
-                memcpy(cipher, in + off + 16 * b, 16);
-                for (j = 0; j < 16; j++) {
-                    out[off + 16 * b + j] = (uint8_t)(plain[16 * b + j] ^ iv[j]);
-                }
-                memcpy(iv, cipher, 16);
-            }
+            cbc_xor_chain(out, in, off, plain, n / 16, iv);
             off += n;
             bulk -= n;
         }
