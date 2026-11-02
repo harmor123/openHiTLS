@@ -241,6 +241,8 @@ chacha20_rvv_blocks9:
     vlsseg4e32.v v16, (a1), t4
     addi t1, a1, 16
     vlsseg4e32.v v20, (t1), t4
+    addi t1, a1, 48
+    vlsseg4e32.v v28, (t1), t4
 
     li   a4, 10
     .p2align 4
@@ -306,8 +308,6 @@ chacha20_rvv_blocks9:
 
     addi t1, a1, 32
     vlsseg4e32.v v24, (t1), t4
-    addi t1, a1, 48
-    vlsseg4e32.v v28, (t1), t4
 
     // Interleave the scalar state stores with the vector XOR.
     vxor.vv v16, v16, v0
